@@ -1,9 +1,9 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13908124.svg)](https://doi.org/10.5281/zenodo.13908124)
+[![DOI](https://zenodo.org/badge/827257897.svg)](https://doi.org/10.5281/zenodo.12722805)
 
 # Can we Constrain Geographical Variability in the Biological Carbon Pump's Transfer Efficiency from Observations?
 
 ![Comparison of published BCP mesopelagic transfer efficiency metrics across six
-ocean sites associated with time-series programs](https://github.com/user-attachments/assets/6819fa5d-d9b1-49b1-a7fc-07b6f2843501)
+ocean sites associated with time-series programs](https://github.com/user-attachments/assets/82f39940-1998-419c-8589-ee1722f7dcbc)
 
 This repository contains the MATLAB scripts and datasets used for the data analysis and figure generation in the study: 
 
