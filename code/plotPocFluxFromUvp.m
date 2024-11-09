@@ -5,7 +5,7 @@
 % has 3 sections:                                                         %
 %   Section 1 - Presets.                                                  %
 %   Section 2 - Plot number of casts.                                     %
-%   Section 3 - Plot Figure S3 (the UVP5-derived POC fluxes compared to   %
+%   Section 3 - Plot Figure S4 (the UVP5-derived POC fluxes compared to   %
 %               the trap and radionuclide-derived measurements).          %
 %                                                                         %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %

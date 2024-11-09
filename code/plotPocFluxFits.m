@@ -3,7 +3,7 @@
 %                                                                         %
 % This script plots annual POC flux profiles from our sediment trap and   %
 % radionuclide compilationas as well as the Martin's b fit for all extant %
-% fit scenarios found in the literature (Figure S4).                      %
+% fit scenarios found in the literature (Figure S3).                      %
 %                                                                         %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
@@ -176,7 +176,11 @@ for isLogTransformed = isLogTransformedOptions
                 set(gca,'YDir','Reverse','XAxisLocation','Bottom')
 
                 if (iSubplot == NUM_LOCS)
-                    lg = legend('Observed data','Canonical b fit','Estimated b fit MM','Estimated b fit AF','Reference depth',...
+                    lg = legend('Observed data',...
+                                'Canonical b fit',...
+                                'Estimated b fit MM',...
+                                'Estimated b fit AF',...
+                                'Reference depth',...
                         'Location','eastoutside');
                     lg.Position(1) = 0.86; lg.Position(2) = 0.69;
                     lg.Orientation = 'vertical';
