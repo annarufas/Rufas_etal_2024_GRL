@@ -30,18 +30,19 @@ addpath(genpath('./resources/internal/'));
 % SECTION 1 - PRESETS
 % -------------------------------------------------------------------------
 
-filenameInputUvpProcessedDataset45sc = 'pocflux_bisson_45sc_monthly_and_annual_all_depths.mat';
-filenameInputMonthlyPocFlux          = 'pocflux_compilation_monthly.mat';
+filenameInputUvpProcessedDataset45sc = 'pocflux_bisson_45sc.mat';
+filenameInputPocFluxCompilation      = 'pocflux_compilation.mat';
 filenameInputTimeseriesInformation   = 'timeseries_station_information.mat';
 
 % Load the UVP5 data
 load(fullfile('.','data','processed','UVP5',filenameInputUvpProcessedDataset45sc),'UVP_TABLE')
 
 % Load the trap and radionuclide compilation
-load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),'TRAPRAD_TABLE')
+load(fullfile('.','data','processed',filenameInputPocFluxCompilation),'TRAPRAD_TABLE')
 
 % Load station information
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),'STATION_NAMES')
+nLocs = length(STATION_NAMES);
 SUFFIX_ECOTAXA_FOLDER_NAME = {'EqPac','OSP','PAPSO','BATSOFP','HOTALOHA','HAUSGARTEN'};
 
 % =========================================================================
@@ -66,7 +67,7 @@ nMatchedLocs = 0;
 % Initialise cell array that contains names of locations with matchups
 tableNamesMatchedLocs = {};
 
-for iLoc = 1:length(STATION_NAMES)
+for iLoc = 1:nLocs
     
     thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
 
@@ -186,7 +187,7 @@ pValueLocal = zeros(nMatchedLocs,1);
 nMatchupsLocal = zeros(nMatchedLocs,1);
 
 iMatchedLoc = 0;
-for iLoc = 1:length(STATION_NAMES)
+for iLoc = 1:nLocs
     thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
     if isfield(MATCHUP_TABLE, thisLocationName)
         iMatchedLoc = iMatchedLoc + 1;
@@ -228,8 +229,7 @@ axh = axes('Position', [0.11 0.11 0.62 0.72]); % axes to make space for the lege
 
 % Plot error bars first
 iMatchedLoc = 0;
-for iLoc = 1:length(STATION_NAMES)
-    
+for iLoc = 1:nLocs
     thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
     
     if isfield(MATCHUP_TABLE, thisLocationName)
@@ -266,12 +266,10 @@ hold on
 
 % Plot scatters on top
 iMatchedLoc = 0;
-for iLoc = 1:length(STATION_NAMES)
-    
+for iLoc = 1:nLocs  
     thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
     
-    if isfield(MATCHUP_TABLE, thisLocationName)
-        
+    if isfield(MATCHUP_TABLE, thisLocationName)  
         x = MATCHUP_TABLE.(thisLocationName).traprad.avg;
         y = MATCHUP_TABLE.(thisLocationName).uvp.avg;
         iMatchedLoc = iMatchedLoc + 1;
@@ -279,11 +277,10 @@ for iLoc = 1:length(STATION_NAMES)
         scatter(axh,x,y,60,'o','MarkerEdgeColor','k',...
             'MarkerFaceColor',coloursLocs(iMatchedLoc,:),'LineWidth',0.5);
         hold on
-
     end
     
     % Plot 1:1 reference line
-    if (iLoc == length(STATION_NAMES)) 
+    if (iLoc == nLocs) 
         hline = refline(axh,1,0); 
         hline.Color = 'k';
         hline.LineStyle = '--';

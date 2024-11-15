@@ -26,18 +26,19 @@ addpath(genpath('./resources/internal/'));
 % -------------------------------------------------------------------------
 
 % Filename declarations 
-filenameInputMonthlyPocFlux = 'pocflux_compilation_monthly.mat';
+filenameInputFluxCompilation       = 'pocflux_compilation.mat';
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
-filenameInputMetricsArrayChoices = 'fitmetrics_all_combinations.mat';
+filenameInputMetricsArrayChoices   = 'fitmetrics_all_combinations.mat';
 
 % Load the data
-load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),...
+load(fullfile('.','data','processed',filenameInputFluxCompilation),...
     'classicAnnualProfileAvg','classicAnnualProfileErrTot',...
     'classicAnnualProfileN','classicAnnualProfileDepths')
 
 % Load information on stations
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'NUM_LOCS','STATION_NAMES')
+    'STATION_NAMES','qZeuMonthly')
+nLocs = length(STATION_NAMES);
 
 % Define possible values for each choice
 isMeansOfMeansOptions   = [0, 1];
@@ -63,7 +64,10 @@ canonicalMartinb = 0.858;
 % -------------------------------------------------------------------------
 
 load(fullfile('.','data','processed',filenameInputMetricsArrayChoices),...
-    'martinbAnnual','qZeuAnnual')
+    'martinbAnnual')
+
+% Calculate annual euphotic layer depth
+qZeuAnnual = mean(qZeuMonthly,1,'omitnan');
                                            
 colourFeatures = brewermap(3,'*Set1');
 
@@ -78,11 +82,11 @@ for isLogTransformed = isLogTransformedOptions
 
             figure()
             set(gcf,'Units','Normalized','Position',[0.01 0.05 0.58 0.28],'Color','w')
-            haxis = zeros(NUM_LOCS,1);
+            haxis = zeros(nLocs,1);
 
-            for iSubplot = 1:NUM_LOCS
+            for iSubplot = 1:nLocs
 
-                haxis(iSubplot) = subaxis(1,NUM_LOCS,iSubplot,'Spacing',0.03,'Padding',0.0,'Margin',0.11);
+                haxis(iSubplot) = subaxis(1,nLocs,iSubplot,'Spacing',0.03,'Padding',0.0,'Margin',0.11);
                 ax(iSubplot).pos = get(haxis(iSubplot),'Position');
 
                 % Shift all plots a little bit to the left and up
@@ -106,12 +110,12 @@ for isLogTransformed = isLogTransformedOptions
                 end
 
                 % Extract data (as it is, not the 5-m bin-averaged)
-                idxsNonNanDepths = find(~isnan(classicAnnualProfileDepths(:,iLoc)));
-                nonNanDepths = classicAnnualProfileDepths(idxsNonNanDepths,iLoc);
-                nonNanFluxes = classicAnnualProfileAvg(idxsNonNanDepths,iLoc);
-                nonNanErrs = classicAnnualProfileErrTot(idxsNonNanDepths,iLoc);
+                idxValidData = find(~isnan(classicAnnualProfileDepths(:,iLoc)));
+                validDepths = classicAnnualProfileDepths(idxValidData,iLoc);
+                validFluxes = classicAnnualProfileAvg(idxValidData,iLoc);
+                validErrs = classicAnnualProfileErrTot(idxValidData,iLoc);
                 [selectedDepths,selectedFluxes,selectedErrs] = extractDataBelowZref(...
-                    nonNanDepths,nonNanFluxes,nonNanErrs,choiceZref,qZeuAnnual(iLoc));
+                    validDepths,validFluxes,validErrs,choiceZref,qZeuAnnual(iLoc),200);
 
                 % Extract estimated fit for 'means of means' 
                 estimatedMartinbMeansOfMeans = martinbAnnual(iLoc,1,j,k,choiceZref);
@@ -120,7 +124,7 @@ for isLogTransformed = isLogTransformedOptions
                 estimatedMartinbAnnualFit = martinbAnnual(iLoc,2,j,k,choiceZref);
 
                 % Plot annual mean of observations
-                plot(haxis(iSubplot),nonNanFluxes,nonNanDepths,...
+                plot(haxis(iSubplot),validFluxes,validDepths,...
                     'o','MarkerEdgeColor','k','MarkerFaceColor','k','LineWidth',1.5);
                 hold on;
 
@@ -147,7 +151,7 @@ for isLogTransformed = isLogTransformedOptions
                     xlim([0 320])
                     xTickValues = 0:150:300;
                 elseif (iLoc == 2) % OSP
-                    xlim([0 210])
+                    xlim([0 220])
                     xTickValues = 0:100:200;       
                 elseif (iLoc == 3) % PAP-SO
                     xlim([0 320])
@@ -165,7 +169,7 @@ for isLogTransformed = isLogTransformedOptions
                 xticks(xTickValues)
                 xticklabels(xTickValues)
 
-                ylim([15 4000])
+                ylim([15 5000])
                 yticks([20 100 1000 4000])
                 set(gca,'Yscale','log')
                 axh = gca;
@@ -175,7 +179,7 @@ for isLogTransformed = isLogTransformedOptions
                 yticklabels({'20','100','1000','4000'})
                 set(gca,'YDir','Reverse','XAxisLocation','Bottom')
 
-                if (iSubplot == NUM_LOCS)
+                if (iSubplot == nLocs)
                     lg = legend('Observed data',...
                                 'Canonical b fit',...
                                 'Estimated b fit MM',...

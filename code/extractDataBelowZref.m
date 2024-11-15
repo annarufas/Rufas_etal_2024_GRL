@@ -1,5 +1,5 @@
 function [selectedDepths,selectedFluxes,selectedErrs] = extractDataBelowZref(...
-    depthVector,fluxVector,fluxErrVector,choiceZref,locZeu)
+    depthVector,fluxVector,fluxErrVector,choiceZref,locZeu,maxZref)
 
 % EXTRACTDATABELOWZREF Extracts POC flux values and associated depths below
 % the reference depth (zref).
@@ -10,6 +10,7 @@ function [selectedDepths,selectedFluxes,selectedErrs] = extractDataBelowZref(...
 %       fluxErrVector - vector of POC flux errors
 %       choiceZref    - choice of reference depth (zeu, 100 m or inflexion point)
 %       locZeu        - local euphotic layer depth
+%       maxZref       - maximum allowable reference depth
 %
 %   OUTPUT:
 %       selectedDepths - vector of selected depths
@@ -29,10 +30,10 @@ function [selectedDepths,selectedFluxes,selectedErrs] = extractDataBelowZref(...
 
 %% Get rid of NaNs
 
-idxsNonNanDepths = find(~isnan(depthVector));
-nonNanDepths = depthVector(idxsNonNanDepths);
-nonNanFluxes = fluxVector(idxsNonNanDepths);
-nonNanErrs = fluxErrVector(idxsNonNanDepths);
+validIdx = ~isnan(depthVector); 
+validDepths = depthVector(validIdx);
+validFluxes = fluxVector(validIdx);
+validErrs = fluxErrVector(validIdx);
 
 %% Initialise outputs
 
@@ -42,29 +43,40 @@ selectedErrs = [];
 
 %% Determine zref based on choiceZref
 
-if (choiceZref == 1)
-    [~,idxTargetDepth] = min(abs(nonNanDepths - 100));
-elseif (choiceZref == 2)  
-    [~,idxTargetDepth] = min(abs(nonNanDepths - locZeu));
-elseif (choiceZref == 3)
-    % Loop through each element to find the first point where 
-    % all subsequent values are smaller
-    idxTargetDepth = [];
-    for i = 1:length(nonNanFluxes)-1
-        if all(nonNanFluxes(i) > nonNanFluxes(i+1:end))
-            idxTargetDepth = i;
-            break;
+switch choiceZref
+    case 1  % Fixed 100 m depth
+        [~, idxTargetDepth] = min(abs(validDepths - 100)); 
+        
+    case 2  % Local euphotic depth (zeu)
+        [~, idxTargetDepth] = min(abs(validDepths - locZeu)); 
+        
+    case 3  % Depth at inflection point 
+        % Find the depth where flux first decreases (simple check for inflection)
+        idxTargetDepth = [];
+        for i = 1:length(validFluxes)-1
+            if all(validFluxes(i) > validFluxes(i+1:end))
+                idxTargetDepth = i;
+                break;
+            end
         end
-    end
+
 end
 
 %% Extract
 
 if ~isempty(idxTargetDepth)
-    idxAccDepths = nonNanDepths >= nonNanDepths(idxTargetDepth);
-    selectedDepths = nonNanDepths(idxAccDepths);
-    selectedFluxes = nonNanFluxes(idxAccDepths); 
-    selectedErrs = nonNanErrs(idxAccDepths); 
-end
+    % Filter depths greater than or equal to zref (target depth)
+    selectedDepths = validDepths(validDepths >= validDepths(idxTargetDepth));
     
+    % Ensure that selected depths do not exceed maxZref
+    if selectedDepths(1) <= maxZref
+        selectedFluxes = validFluxes(validDepths >= validDepths(idxTargetDepth)); 
+        selectedErrs = validErrs(validDepths >= validDepths(idxTargetDepth)); 
+    else
+        selectedDepths = [];
+        selectedFluxes = [];
+        selectedErrs = [];
+    end
+end
+
 end % extractDataBelowZref

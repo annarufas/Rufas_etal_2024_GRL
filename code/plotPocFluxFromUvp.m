@@ -11,7 +11,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 14 Oct 2024                                   %
+%   Version 1.0 - Completed 13 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -29,30 +29,25 @@ addpath(genpath('./resources/internal/'));
 % -------------------------------------------------------------------------
 
 % Filename declarations 
-filenameInputUvpProcessedDataset45sc = 'pocflux_bisson_45sc_monthly_and_annual_all_depths.mat';
-filenameInputMonthlyPocFlux          = 'pocflux_compilation_monthly.mat';
+filenameInputUvpProcessedDataset45sc = 'pocflux_bisson_45sc.mat';
+filenameInputPocFluxCompilation      = 'pocflux_compilation.mat';
 filenameInputTimeseriesInformation   = 'timeseries_station_information.mat';
-
-% Define parameters
-MOLAR_MASS_CARBON = 12.011; % g mol-1
 
 % Load the UVP5 data
 load(fullfile('.','data','processed','UVP5',filenameInputUvpProcessedDataset45sc),...
     'uvpFluxByCastAvg','uvpFluxByCastErr','uvpMonthlyFluxProfileAvg','ecotaxaDepths',...
     'castMonthlyDistrib')
-
 maxNumCastsPerMonth = max(castMonthlyDistrib,[],'all');
 nDepths = numel(ecotaxaDepths);
 
 % Load the trap and radionuclide compilation
-load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),...
+load(fullfile('.','data','processed',filenameInputPocFluxCompilation),...
     'classicRawProfileValues','classicRawProfileDataType','classicRawProfileDepths')
 
 % Load station information
-load(fullfile('.','data','processed',filenameInputTimeseriesInformation))
-
-% Labels used for the plots
-monthsLabel = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'};
+load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
+    'STATION_NAMES','STATION_TAGS')
+nLocs = length(STATION_NAMES);
 
 % =========================================================================
 %%
@@ -60,6 +55,7 @@ monthsLabel = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'
 % SECTION 2 - PLOT NUMBER OF CASTS
 % -------------------------------------------------------------------------
 
+monthsLabel = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'};
 categoricalLabelMonths = categorical(monthsLabel);
 categoricalLabelMonths = reordercats(categoricalLabelMonths,monthsLabel);
 
@@ -83,8 +79,8 @@ saveFigure('uvp_numbercasts_45sizeclasses')
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 3 - PLOT FIGURE S3 (THE UVP5-DERIVED POC FLUXES COMPARED TO OUR
-% TRAP AND RADIONUCLIDE COMPILATION OF POC FLUXES)
+% SECTION 3 - PLOT FIGURE S4 (THE UVP5-DERIVED POC FLUXES COMPARED TO THE
+% TRAP AND RADIONUCLIDE-DERIVED MEASUREMENTS)
 % -------------------------------------------------------------------------
 
 plotDepths = 47.5:5:1005;
@@ -93,7 +89,7 @@ for iDepth = 1:numel(plotDepths)
     [~, idxPlotDepths(iDepth)] = min(abs(ecotaxaDepths - plotDepths(iDepth)));
 end  
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     
     figure()
     set(gcf,'Units','Normalized','Position',[0.01 0.05 0.25 0.75],'Color','w')
@@ -108,9 +104,9 @@ for iLoc = 1:NUM_LOCS
         
         % Calculate xlim
         maxAnnualUvp = max(uvpFluxByCastAvg(:,:,:,iLoc),[],'all','omitnan'); % mg C m-2 d-1
-        maxAnnualClassic = max(classicRawProfileValues(:,:,iLoc).*MOLAR_MASS_CARBON,[],'all','omitnan'); % mmol C m-2 d-1 --> mg C m-2 d-1 
+        maxAnnualClassic = max(classicRawProfileValues(:,:,iLoc),[],'all','omitnan'); % mg C m-2 d-1 
 
-        maxMonthlyObs = max(classicRawProfileValues(:,iMonth,iLoc).*MOLAR_MASS_CARBON,[],'omitnan');
+        maxMonthlyObs = max(classicRawProfileValues(:,iMonth,iLoc),[],'omitnan');
         if (isnan(maxMonthlyObs)) 
             maxMonthlyObs = 0;
         end
@@ -152,7 +148,7 @@ for iLoc = 1:NUM_LOCS
                 'MarkerFaceColor',[0.85 0.85 0.85],'LineWidth',0.5,...
                 'DisplayName','Observed (trap)');
         else
-            d3 = plot(classicRawProfileValues(mask,iMonth,iLoc).*MOLAR_MASS_CARBON,...
+            d3 = plot(classicRawProfileValues(mask,iMonth,iLoc),...
                 classicRawProfileDepths(mask,iMonth,iLoc),'o','MarkerEdgeColor',[0.85 0.85 0.85],...
                 'MarkerFaceColor',[0.85 0.85 0.85],'LineWidth', 0.5,... 
                 'DisplayName','Observed (trap)');
@@ -166,7 +162,7 @@ for iLoc = 1:NUM_LOCS
                 'MarkerFaceColor',[0.6 0.6 0.6],'LineWidth',1.5,...
                 'DisplayName', 'Observed (radionuclide)');
         else
-            d4 = plot(classicRawProfileValues(mask,iMonth,iLoc).*MOLAR_MASS_CARBON,...
+            d4 = plot(classicRawProfileValues(mask,iMonth,iLoc),...
                 classicRawProfileDepths(mask,iMonth,iLoc),'+','MarkerEdgeColor',[0.6 0.6 0.6],...
                 'MarkerFaceColor',[0.6 0.6 0.6],'LineWidth',1.5,...
                 'DisplayName','Observed (radionuclide)');
@@ -269,4 +265,3 @@ for iLoc = 1:NUM_LOCS
     saveFigure(strcat('uvp_pocflux_45sizeclasses_',STATION_TAGS{iLoc}))
   
 end % iLoc 
-

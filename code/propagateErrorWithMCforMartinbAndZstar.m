@@ -3,7 +3,7 @@ function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =...
     isMeansOfMeans,isLogTransformed,isFluxNormalised,choiceZref)
 
 % PROPAGATEERRORWITHMCFORMARTINBANDZSTAR Calculates average Martin's b and
-% z* and propagates error from POC flux data.
+% remineralisation length scale (z*) and propagates error from POC flux data.
 %
 %   INPUT: 
 %       arrayDepths      - Depths of POC flux.
@@ -223,8 +223,8 @@ function [martinbArray,martinbArray_mcvals,martinbArray_gof,...
     zstarArray_mcvals   = NaN(NUM_MONTE_CARLO_SAMPLES,1);
     zstarArray_gof      = NaN(NUM_SAMPLES,1);
     
-    % Only proceed if there are flux data and the first depth is <= 200 m
-    if (sum(~isnan(profileFluxAvg)) > 0 && profileDepths(1) <= 200)
+    % Only proceed if there are flux data
+    if sum(~isnan(profileFluxAvg)) > 0
 
         % Randomly sample POC flux values from a normal distribution to
         % generate 'NUM_SAMPLES' POC flux profiles
@@ -312,10 +312,10 @@ function [midval,ci,funvals] = errorPropagationWithMC(coeffVals,coeffName,...
                 disp(coeffAcc(1:min(100, end), :));
             end
         else
-            fprintf('\nNo reasonable values found for %s\n', coeffName)
+            fprintf('\nNo reasonable values found for %s', coeffName)
         end
     else
-        fprintf('\nNo reasonable values found for %s\n', coeffName)
+        fprintf('\nNo reasonable values found for %s', coeffName)
     end
    
 % I've identified up to 3 different ways of propagating errors via MC (see 

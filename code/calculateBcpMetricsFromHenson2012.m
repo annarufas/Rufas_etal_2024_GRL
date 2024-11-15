@@ -61,13 +61,10 @@ load(fullfile('.','data','interim','npp_carr2002_seawifs_pathfinder.mat'),...
 load(fullfile('.','data','interim','sst_pathfinder_v5.mat'),...
     'sst','sst_lat','sst_lon')
 
-% Permute SST array to match dimensions arrangement of NPP
-sst_perm = permute(sst, [2, 1, 3]); 
-
 % Regrid SST array to NPP grid
-[qX, qY, qT] = ndgrid(npp_lon, npp_lat, (1:12)'); % query points for interpolation    
-[X, Y, T] = ndgrid(sst_lon, sst_lat, (1:12)'); % original array
-F = griddedInterpolant(X, Y, T, sst_perm, 'linear', 'none'); % interpolant
+[qX, qY, qT] = ndgrid(npp_lat, npp_lon, (1:12)'); % query points for interpolation    
+[X, Y, T] = ndgrid(sst_lat, sst_lon, (1:12)'); % original array
+F = griddedInterpolant(X, Y, T, sst, 'linear', 'none'); % interpolant
 sst_regridded = F(qX, qY, qT); % regridded SST array
     
 %% Calculations
@@ -125,7 +122,7 @@ else % local data
     nLocs = length(listLocalLats);
     
     % Prepare interpolants to extract local NPP and SST for our locations of interest
-    [X, Y, T] = ndgrid(npp_lon, npp_lat, (1:12)'); % same for SST
+    [X, Y, T] = ndgrid(npp_lat, npp_lon, (1:12)'); % same for SST
     Fnpp = griddedInterpolant(X, Y, T, npp_avg, 'linear');
     Fsst = griddedInterpolant(X, Y, T, sst_regridded, 'linear'); 
 
@@ -139,7 +136,7 @@ else % local data
 
     for iLoc = 1:nLocs
 
-        [qX, qY, qT] = ndgrid(qLons(iLoc), qLats(iLoc), (1:12)'); % query points for interpolation
+        [qX, qY, qT] = ndgrid(qLats(iLoc), qLons(iLoc), (1:12)'); % query points for interpolation
         qNppMonthly = Fnpp(qX, qY, qT);
         qSstMonthly = Fsst(qX, qY, qT);
 

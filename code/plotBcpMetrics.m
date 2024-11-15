@@ -29,14 +29,15 @@ addpath(genpath('./resources/internal/'));
 % -------------------------------------------------------------------------
 
 % Filename declarations
-filenameInputMetricsData = 'bcpmetrics_all.mat';
+filenameInputMetricsData           = 'bcpmetrics_all.mat';
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
 
 % Load the metrics array
 load(fullfile('.','data','processed',filenameInputMetricsData),'metricsData')
 
 % Load station information
-load(fullfile('.','data','processed',filenameInputTimeseriesInformation),'NUM_LOCS')
+load(fullfile('.','data','processed',filenameInputTimeseriesInformation),'LOC_LATS')
+nLocs = length(LOC_LATS);
 
 % Indexes to locations
 iE = 1; % EqPac
@@ -75,13 +76,13 @@ iTimeSeries = iUvp + 1;
 labelMetrics = {'Martin b','z^{*} (m)','T_{eff}'};
 labelOceanLocations = {'HOT/ALOHA','BATS/OFP','EqPac','PAP-SO','OSP','HAUSGARTEN'};
 
-nSubplots = NUM_LOCS*length(labelMetrics);
+nSubplots = nLocs*length(labelMetrics);
 nPointsPerLoc = nPublications;
 x = 1:nPointsPerLoc;            
 myColourPalette = [jet(nPublications-1);[0 0 0]]; % append a row of black at the end
 
 % Array to store group mean
-mng = zeros(nPublications,nMetrics,NUM_LOCS);
+mng = zeros(nPublications,nMetrics,nLocs);
 
 figure()
 set(gcf,'Units','Normalized','Position',[0.01 0.05 0.95 0.75],'Color','w') 
@@ -90,7 +91,7 @@ haxis = zeros(nSubplots,1);
 for iSubplot = 1:nSubplots
 
     % Add an extra row of plots to accommodate the legend
-    haxis(iSubplot) = subaxis(4,NUM_LOCS,iSubplot,'Spacing',0.020,'Padding',0.024,'Margin',0.02);
+    haxis(iSubplot) = subaxis(4,nLocs,iSubplot,'Spacing',0.020,'Padding',0.024,'Margin',0.02);
     ax(iSubplot).pos = get(haxis(iSubplot),'Position');
     if (iSubplot == 1 || iSubplot == 7 || iSubplot == 13)
         ax(iSubplot).pos(1) = ax(iSubplot).pos(1) + 0.068;
@@ -105,9 +106,9 @@ for iSubplot = 1:nSubplots
     elseif (iSubplot == 6 || iSubplot == 12 || iSubplot == 18)
         ax(iSubplot).pos(1) = ax(iSubplot).pos(1) - 0.2720;
     end 
-    if (iSubplot >= 1 && iSubplot <= NUM_LOCS)
+    if (iSubplot >= 1 && iSubplot <= nLocs)
         ax(iSubplot).pos(2) = ax(iSubplot).pos(2); % + 0.02;
-    elseif (iSubplot >= NUM_LOCS+1 && iSubplot <= 12)
+    elseif (iSubplot >= nLocs+1 && iSubplot <= 12)
         ax(iSubplot).pos(2) = ax(iSubplot).pos(2); % + 0.01;
     end
     set(haxis(iSubplot),'Position',ax(iSubplot).pos) 
@@ -271,7 +272,7 @@ for iSubplot = 1:nSubplots
     ah.YGrid = 'on';
     ah.GridColor = 'k';  
 
-    if (iSubplot >= 1 && iSubplot <= NUM_LOCS)
+    if (iSubplot >= 1 && iSubplot <= nLocs)
         title(labelOceanLocations(iSubplot),'FontSize',12,'Units','normalized','Position',[0.5, 1.05, 0])
     end
     

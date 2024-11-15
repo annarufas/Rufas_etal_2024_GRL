@@ -21,7 +21,7 @@
 %   WITH CODES PROVIDED BY K. BISSON, OREGON STATE                        %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 14 Oct 2024                                   %
+%   Version 1.0 - Completed 12 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -40,11 +40,11 @@ addpath(genpath('./resources/internal/'));
 
 % Script options
 isEcotaxaDataReady = 1;
-isPocFluxReady = 1;
+isPocFluxCalculated = 1;
 
 % Filename declarations
-filenameOutputUvpProcessedDataset45sc = 'pocflux_bisson_45sc_monthly_and_annual_all_depths.mat';
-filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
+filenameOutputUvpProcessedDataset45sc = 'pocflux_bisson_45sc.mat';
+filenameInputTimeseriesInformation    = 'timeseries_station_information.mat';
 suffixOutputFluxFilename = '_flux_data_all_depths.mat';
 
 % Depth declarations
@@ -55,7 +55,8 @@ nEcotaxaDepths = numel(ecotaxaDepths);
 % Load information on reference depths used to extract trap and
 % radionuclide POC flux data for Teff calculation
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'NUM_LOCS','LOC_DEPTH_HORIZONS','NUM_TARGET_DEPTHS')
+    'LOC_DEPTH_HORIZONS')
+nLocs = size(LOC_DEPTH_HORIZONS,2);
 
 % Particle size parameter declarations
 NUM_SIZE_CLASSES = 45;
@@ -63,10 +64,10 @@ SIZE_STEP_PROGRESSION = 2^(1/3); % 2^(1/3) ~= 1.26 um
 
 % Enter the coordinates that we have used to define our locations in the
 % EcoTaxa's website map
-LAT_UPPER = zeros(NUM_LOCS,1);
-LAT_UPPER = zeros(NUM_LOCS,1);
-LON_RIGHT = zeros(NUM_LOCS,1);
-LON_LEFT = zeros(NUM_LOCS,1);
+LAT_UPPER = zeros(nLocs,1);
+LAT_UPPER = zeros(nLocs,1);
+LON_RIGHT = zeros(nLocs,1);
+LON_LEFT = zeros(nLocs,1);
 
 % EqPac                % OSP                   % PAP-SO               
 LAT_UPPER(1) = 4;      LAT_UPPER(2) = 51.5;    LAT_UPPER(3) = 49.5;   
@@ -92,7 +93,7 @@ PREFIX_ECOTAXA_FOLDER_NAME = 'export_detailed_'; % common name part to all folde
 
 % Read in the *PART* files downloaded from the EcoTaxa website
 if ~isEcotaxaDataReady
-    readEcoTaxaParticleFiles(SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS)
+    readEcoTaxaParticleFiles(SUFFIX_ECOTAXA_FOLDER_NAME,nLocs)
 end
 
 % EcoTaxa size class definitions (um)
@@ -126,7 +127,7 @@ binWidth = binWidth*1e-3;
 
 % For all depths, this loop takes ~1 h
 
-if ~isPocFluxReady
+if ~isPocFluxCalculated
 
     % Number of times the modelled PSD flux will be sampled to calculate
     % uncertainty boundaries for POC flux
@@ -134,7 +135,7 @@ if ~isPocFluxReady
 
     tic
 
-    for iLoc = 1:NUM_LOCS
+    for iLoc = 1:nLocs
 
         % The EcoTaxa data set
         load(fullfile('.','data','processed','UVP5',...
@@ -213,13 +214,14 @@ end % ~isPocFluxReady
     
 % Calculate the number of casts (vertical sampling events) for each 
 % location and month
-castMonthlyDistrib = calculateNumberOfCasts(SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS,suffixOutputFluxFilename);
+castMonthlyDistrib = calculateNumberOfCasts(SUFFIX_ECOTAXA_FOLDER_NAME,...
+    nLocs,suffixOutputFluxFilename);
 maxNumCastsPerMonth = max(castMonthlyDistrib,[],'all');
 
 % Combine local arrays of particle number concentrations into a single
 % array with dimensions of cast x depth x month x location
 [uvpFluxByCastAvg,uvpFluxByCastErr,UVP_TABLE] = arrangePocFluxDataByLocMonthDepthCast(...
-    SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS,maxNumCastsPerMonth,ecotaxaDepths,...
+    SUFFIX_ECOTAXA_FOLDER_NAME,nLocs,maxNumCastsPerMonth,ecotaxaDepths,...
     nEcotaxaDepths,suffixOutputFluxFilename);
     
 % =========================================================================
@@ -228,12 +230,11 @@ maxNumCastsPerMonth = max(castMonthlyDistrib,[],'all');
 % SECTION 5 - BIN DATA MONTHLY BY UNIQUE DEPTH AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-uvpMonthlyFluxProfileAvg = NaN(nEcotaxaDepths,12,NUM_LOCS); 
-uvpMonthlyFluxProfileN   = zeros(nEcotaxaDepths,12,NUM_LOCS); 
-uvpMonthlyFluxProfileErr = NaN(nEcotaxaDepths,12,NUM_LOCS); 
+uvpMonthlyFluxProfileAvg = NaN(nEcotaxaDepths,12,nLocs); 
+uvpMonthlyFluxProfileN   = zeros(nEcotaxaDepths,12,nLocs); 
+uvpMonthlyFluxProfileErr = NaN(nEcotaxaDepths,12,nLocs); 
 
-for iLoc = 1:NUM_LOCS
-    
+for iLoc = 1:nLocs 
     for iMonth = 1:12
         nCasts = castMonthlyDistrib(iMonth,iLoc);
         
@@ -278,29 +279,27 @@ end % iLoc
 % SECTION 6 - BIN DATA MONTHLY BY DEPTH HORIZON AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-uvpMonthlyFluxDhAvg = NaN(2,12,NUM_LOCS); % 1st dim: 1=base zeu, 2=base zmeso 
-uvpMonthlyFluxDhN   = zeros(2,12,NUM_LOCS);
-uvpMonthlyFluxDhErr = NaN(2,12,NUM_LOCS);
+uvpMonthlyFluxDhAvg = NaN(2,12,nLocs); % 1st dim: 1=base zeu, 2=base zmeso 
+uvpMonthlyFluxDhN   = zeros(2,12,nLocs);
+uvpMonthlyFluxDhErr = NaN(2,12,nLocs);
 
-for iLoc = 1:NUM_LOCS
-    
-    for iDh = 1:2 % we don't need the 3rd target depth (bathypelagic) 
-        idxTargetDepths = ecotaxaDepths > LOC_DEPTH_HORIZONS(iLoc,1,iDh)...
-            & ecotaxaDepths < LOC_DEPTH_HORIZONS(iLoc,2,iDh);
+for iLoc = 1:nLocs 
+    for iMonth = 1:12
+        nCasts = castMonthlyDistrib(iMonth,iLoc);
         
-        % Pull data by month
-        for iMonth = 1:12
-            nCasts = castMonthlyDistrib(iMonth,iLoc);
+        if nCasts > 0
+            for iDh = 1:2 % we don't need the 3rd target depth (bathypelagic) 
+                depthCondition = ecotaxaDepths > LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) &...
+                                 ecotaxaDepths < LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh);
 
-            if (nCasts > 0)
-                currMonthData = uvpMonthlyFluxProfileAvg(idxTargetDepths,iMonth,iLoc);
-                currMonthErr = uvpMonthlyFluxProfileErr(idxTargetDepths,iMonth,iLoc);
+                currMonthData = uvpMonthlyFluxProfileAvg(depthCondition,iMonth,iLoc);
+                currMonthErr = uvpMonthlyFluxProfileErr(depthCondition,iMonth,iLoc);
                 
                 % Proceed if there are data in the current month
-                if (any(currMonthData))
+                if any(currMonthData)
 
                     % Calculate weighted mean (mw = ((mA*nA)+(mB*nB)+(mC*nC))/(nA+nB+nC))
-                    nCastsInDepths = uvpMonthlyFluxProfileN(idxTargetDepths,iMonth,iLoc);
+                    nCastsInDepths = uvpMonthlyFluxProfileN(depthCondition,iMonth,iLoc);
                     paramsWeightedAverage = currMonthData.*nCastsInDepths;
                     calculateWeightedAvg = @(x) sum(x) ./ sum(nCastsInDepths(:), 'omitnan');
                     uvpMonthlyFluxDhAvg(iDh,iMonth,iLoc) = calculateWeightedAvg(paramsWeightedAverage);
@@ -310,16 +309,16 @@ for iLoc = 1:NUM_LOCS
                     uvpMonthlyFluxDhN(iDh,iMonth,iLoc) = sum(nCastsInDepths);
 
                     % Error propagation using worstcase with the function handle and the parameters
-                    [x_LB, x_UB, f_LB, f_MID, f_UB, minus_percent, plus_percent] = ...
+                    [~,~,f_LB,f_MID,f_UB,~,~] = ...
                         worstcase(@(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
                         paramsWeightedAverage, currMonthErr);
                     uvpMonthlyFluxDhErr(iDh,iMonth,iLoc) = f_UB - f_MID;
 
                 end
                 
-            end % nCasts > 0    
-        end % iMonth
-    end % iDh
+            end % iDh  
+        end % nCasts > 0
+    end % iMonth 
 end % iLoc
 
 % =========================================================================
@@ -328,17 +327,16 @@ end % iLoc
 % SECTION 7 - BIN DATA ANNUALLY BY UNIQUE DEPTH AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-uvpAnnualFluxProfileAvg = NaN(nEcotaxaDepths,NUM_LOCS); 
-uvpAnnualFluxProfileErr = NaN(nEcotaxaDepths,NUM_LOCS); 
-uvpAnnualFluxProfileMin = NaN(nEcotaxaDepths,NUM_LOCS); 
-uvpAnnualFluxProfileMax = NaN(nEcotaxaDepths,NUM_LOCS); 
+uvpAnnualFluxProfileAvg = NaN(nEcotaxaDepths,nLocs); 
+uvpAnnualFluxProfileErr = NaN(nEcotaxaDepths,nLocs); 
+uvpAnnualFluxProfileMin = NaN(nEcotaxaDepths,nLocs); 
+uvpAnnualFluxProfileMax = NaN(nEcotaxaDepths,nLocs); 
 
-for iLoc = 1:NUM_LOCS
-    
+for iLoc = 1:nLocs  
     for iDepth = 1:nEcotaxaDepths
         nSamples = uvpMonthlyFluxProfileN(iDepth,:,iLoc);
             
-        if (any(nSamples))
+        if any(nSamples)
             vals = squeeze(uvpMonthlyFluxProfileAvg(iDepth,:,iLoc));
             err = squeeze(uvpMonthlyFluxProfileErr(iDepth,:,iLoc));
 
@@ -352,7 +350,7 @@ for iLoc = 1:NUM_LOCS
             uvpAnnualFluxProfileAvg(iDepth,iLoc) = calculateWeightedAvg(paramsWeightedAverage);
 
             % Error propagation using worstcase with the function handle and the parameters
-            [x_LB, x_UB, f_LB, f_MID, f_UB, minus_percent, plus_percent] = ...
+            [~,~,f_LB,f_MID,f_UB,~,~] = ...
                 worstcase(@(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
                 paramsWeightedAverage', err');
             uvpAnnualFluxProfileErr(iDepth,iLoc) = f_UB - f_MID;
@@ -371,17 +369,16 @@ end % iLoc
 % SECTION 8 - BIN DATA ANNUALLY BY DEPTH HORIZON AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-uvpAnnualFluxDhAvg = NaN(2,NUM_LOCS); % 1st dim: 1=at zeu, 2=at zmeso 
-uvpAnnualFluxDhErr = NaN(2,NUM_LOCS); 
-uvpAnnualFluxDhMin = NaN(2,NUM_LOCS); 
-uvpAnnualFluxDhMax = NaN(2,NUM_LOCS);
+uvpAnnualFluxDhAvg = NaN(2,nLocs); % 1st dim: 1=at zeu, 2=at zmeso 
+uvpAnnualFluxDhErr = NaN(2,nLocs); 
+uvpAnnualFluxDhMin = NaN(2,nLocs); 
+uvpAnnualFluxDhMax = NaN(2,nLocs);
 
-for iLoc = 1:NUM_LOCS
-    
+for iLoc = 1:nLocs  
     for iDh = 1:2 % we don't need the 3rd target depth (bathypelagic) 
         nSamples = uvpMonthlyFluxDhN(iDh,:,iLoc);
         
-        if (any(nSamples))
+        if any(nSamples)
             vals = squeeze(uvpMonthlyFluxDhAvg(iDh,:,iLoc));
             err = squeeze(uvpMonthlyFluxDhErr(iDh,:,iLoc));
 
@@ -395,7 +392,7 @@ for iLoc = 1:NUM_LOCS
             uvpAnnualFluxDhAvg(iDh,iLoc) = calculateWeightedAvg(paramsWeightedAverage);
 
             % Error propagation using worstcase with the function handle and the parameters
-            [x_LB, x_UB, f_LB, f_MID, f_UB, minus_percent, plus_percent] = ...
+            [~,~,f_LB,f_MID,f_UB,~,~] = ...
                 worstcase(@(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
                 paramsWeightedAverage', err');
             uvpAnnualFluxDhErr(iDh,iLoc) = f_UB - f_MID;
@@ -427,7 +424,7 @@ fprintf('\nThe UVP5-derived POC flux dataset has been saved correctly.\n')
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% LOCAL FUNCTIONS
+% LOCAL FUNCTIONS USED IN THIS SCRIPT
 % -------------------------------------------------------------------------
 
 % *************************************************************************
@@ -521,11 +518,11 @@ end % calculateModelledPsd
 
 % *************************************************************************                             
 
-function readEcoTaxaParticleFiles(SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS)
+function readEcoTaxaParticleFiles(SUFFIX_ECOTAXA_FOLDER_NAME,nLocs)
     
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
  
-    listLocalEcoTaxaDirs = getLocalEcoTaxaDirectoryNames(SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS);
+    listLocalEcoTaxaDirs = getLocalEcoTaxaDirectoryNames(SUFFIX_ECOTAXA_FOLDER_NAME,nLocs);
     pathDir = fullfile('.','data','raw','UVP5',listLocalEcoTaxaDirs{iLoc});
 
     % Metadata
@@ -581,7 +578,7 @@ end % readEcoTaxaParticleFiles
 % *************************************************************************
 
 function listLocalEcoTaxaDirs = getLocalEcoTaxaDirectoryNames(...
-    SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS)
+    SUFFIX_ECOTAXA_FOLDER_NAME,nLocs)
 
 % EcoTaxa directories are named using a specific structure consisting of a
 % "prefix", "date of data download" and "suffix". This section manages
@@ -595,10 +592,10 @@ pathEcoTaxaDirs = pathEcoTaxaDirs([pathEcoTaxaDirs.isdir]);
 nameEcoTaxaDirs = {pathEcoTaxaDirs(3:end).name}; % remove '.' and '..' from the list of directories
 
 % Create a mapping from each suffix to its index in the suffix array
-suffixToIndexMap = containers.Map(SUFFIX_ECOTAXA_FOLDER_NAME, 1:NUM_LOCS);
+suffixToIndexMap = containers.Map(SUFFIX_ECOTAXA_FOLDER_NAME, 1:nLocs);
 
 % Initialise an array to store the reordered directory names
-listLocalEcoTaxaDirs = cell(NUM_LOCS,1);
+listLocalEcoTaxaDirs = cell(nLocs,1);
 for i = 1:numel(nameEcoTaxaDirs)
     splitName = strsplit(nameEcoTaxaDirs{i}, '_');
     thisSubdirSuffix = splitName{4}; % get fourth part
@@ -615,11 +612,11 @@ end % getLocalEcoTaxaDirectoryNames
 % *************************************************************************
 
 function castMonthlyDistrib = calculateNumberOfCasts(SUFFIX_ECOTAXA_FOLDER_NAME,...
-    NUM_LOCS,suffixFluxFilename)
+    nLocs,suffixFluxFilename)
 
-castMonthlyDistrib = zeros(12,NUM_LOCS);
+castMonthlyDistrib = zeros(12,nLocs);
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
  
     % The EcoTaxa data set
     load(fullfile('.','data','processed','UVP5',...
@@ -646,18 +643,18 @@ end % calculateNumberOfCasts
 % *************************************************************************
 
 function [uvpFluxByCastAvg,uvpFluxByCastErr,UVP_TABLE] = arrangePocFluxDataByLocMonthDepthCast(...
-    SUFFIX_ECOTAXA_FOLDER_NAME,NUM_LOCS,maxNumCastsPerMonth,targetDepths,...
+    SUFFIX_ECOTAXA_FOLDER_NAME,nLocs,maxNumCastsPerMonth,targetDepths,...
     nTargetDepths,suffixFluxFilename)
 
-uvpFluxByCastAvg = NaN(maxNumCastsPerMonth,nTargetDepths,12,NUM_LOCS);
-uvpFluxByCastErr = NaN(maxNumCastsPerMonth,nTargetDepths,12,NUM_LOCS);
-% uvpFluxByCastC1 = NaN(maxNumCastsPerMonth,nTargetDepths,12,NUM_LOCS);
-% uvpFluxByCastAlpha = NaN(maxNumCastsPerMonth,nTargetDepths,12,NUM_LOCS);
-% uvpFluxByCastGamma = NaN(maxNumCastsPerMonth,nTargetDepths,12,NUM_LOCS);
+uvpFluxByCastAvg = NaN(maxNumCastsPerMonth,nTargetDepths,12,nLocs);
+uvpFluxByCastErr = NaN(maxNumCastsPerMonth,nTargetDepths,12,nLocs);
+% uvpFluxByCastC1 = NaN(maxNumCastsPerMonth,nTargetDepths,12,nLocs);
+% uvpFluxByCastAlpha = NaN(maxNumCastsPerMonth,nTargetDepths,12,nLocs);
+% uvpFluxByCastGamma = NaN(maxNumCastsPerMonth,nTargetDepths,12,nLocs);
 
 UVP_TABLE = table();
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
  
     % The EcoTaxa data set
     load(fullfile('.','data','processed','UVP5',...

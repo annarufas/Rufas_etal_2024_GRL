@@ -19,13 +19,13 @@
 %         constrained by biogeochemical data (Weber2016).                 %
 %                                                                         %
 % This script uses these external functions:                              %
-%   calculateBcpMetricsFromTrapAndRadionuclide.m - custom function        %
-%   calculateBcpMetricsFromUvp.m                 - custom function        %
-%   calculateBcpMetricsFromHenson2012.m          - custom function        %
-%   calculateBcpMetricsFromMarsay2015.m          - custom function        %
-%   generateMCparameters.m                       - from FileExchange      %
-%   propagateErrorWithMC.m                       - from FileExchange      %
-%   swtest.m                                     - from FileExchange      %
+%   calculateBcpMetricsFromTrapAndRadCompilation.m - custom function      %
+%   calculateBcpMetricsFromUvp.m                   - custom function      %
+%   calculateBcpMetricsFromHenson2012.m            - custom function      %
+%   calculateBcpMetricsFromMarsay2015.m            - custom function      %
+%   generateMCparameters.m                         - from FileExchange    %
+%   propagateErrorWithMC.m                         - from FileExchange    %
+%   swtest.m                                       - from FileExchange    %
 %                                                                         %
 % The script has 8 sections:                                              %
 %   Section 1 - Presets.                                                  %
@@ -39,14 +39,15 @@
 %               to physical and biogeochemical data.                      %
 %   Section 6 - Published BCP metrics estimated using a diagnostic model  %
 %               constrained by biogeochemical data.                       %
-%   Section 7 - Write out the metrics data 5D array into a .csv file      %
+%   Section 7 - Save the data.                                            %
+%   Section 8 - Write out the metrics data 5D array into a .csv file      %
 %               (Dataset S2).                                             %
-%   Section 8 - ANOVA statistical tests.                                  %
+%   Section 9 - ANOVA statistical tests.                                  %
 %                                                                         %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 6 Nov 2024                                    %
+%   Version 1.0 - Completed 15 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -73,11 +74,13 @@ choiceZref = 2;       % reference depth, 1=closest value to 100, 2=zeu, 3=inflex
 
 % Path and filename declarations
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
-filenameOutputMetricsData = 'bcpmetrics_all';
-filenameOutputCsvTable = 'dataset_s2_figure4.csv';
+filenameOutputMetricsData          = 'bcpmetrics_all';
+filenameOutputCsvTable             = 'dataset_s2_figure4.csv';
 
 % Load station information
-load(fullfile('.','data','processed',filenameInputTimeseriesInformation))
+load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
+    'LOC_LATS','LOC_LONS')
+nLocs = length(LOC_LATS);
 
 % Set the seed for reproducibility of random number generator
 rng(0); 
@@ -113,7 +116,7 @@ iTimeSeries = iUvp + 1;
 % Initialise the array to store metrics data
 % 3rd dimension: 1=mean, 2=1stdev upp, 3=1stdev low 
 % 4th dimension: up to 4 values provided by a publication
-metricsData = NaN(NUM_LOCS,nMetrics,nPublications,3,4); 
+metricsData = NaN(nLocs,nMetrics,nPublications,3,4); 
 
 % Define functions for later use
 z0 = 100;
@@ -127,11 +130,11 @@ funcZstar_teffDep   = @(x) -(z1-z0)./log(x); % x is Teff
 %%
 % -------------------------------------------------------------------------
 % SECTION 2 - BCP METRICS COMPUTED BY FITTING CANONICAL EQUATIONS TO
-% OBSERVATIONS OF POC FLUX COMPILED FOR THIS STUDY 
+% MEASUREMENTS OF POC FLUX COMPILED FOR THIS STUDY 
 % -------------------------------------------------------------------------
 
 fprintf('\nInitiating calculations of BCP metrics from our compilation of POC flux...\n')
-[classic] = calculateBcpMetricsFromTrapAndRadionuclide(isMeansOfMeans,...
+classic = calculateBcpMetricsFromTrapAndRadCompilation(isMeansOfMeans,...
     isLogTransformed,isFluxNormalised,choiceZref);
 fprintf('\n...done.\n')
     
@@ -155,7 +158,7 @@ metricsData(:,iTeff,iTimeSeries,3,1) = classic.teff.stdevlow(:);
 % -------------------------------------------------------------------------
 
 fprintf('\nInitiating calculations of BCP metrics from the UVP5-derived estimates of POC flux...\n')
-[uvp] = calculateBcpMetricsFromUvp(isMeansOfMeans,isLogTransformed,...
+uvp = calculateBcpMetricsFromUvp(isMeansOfMeans,isLogTransformed,...
     isFluxNormalised,choiceZref);
 fprintf('\n...done.\n')
     
@@ -571,7 +574,7 @@ fprintf('...done.\n')
 % Henson et al. (2012) 
 
 fprintf('\nInitiating calculations of BCP metrics following Henson et al. (2012)...\n')
-[henson2012] = calculateBcpMetricsFromHenson2012(0,LOC_LATS,LOC_LONS);
+henson2012 = calculateBcpMetricsFromHenson2012(0,LOC_LATS,LOC_LONS);
 fprintf('\n...done.\n')
 
 metricsData(:,iMartinb,iH2012,1,1) = henson2012.martinb.ave(:);
@@ -597,7 +600,7 @@ metricsData(:,iTeff,iH2012,5,1) = henson2012.teff1000.min(:);
 % Marsay et al. (2015)
 
 fprintf('\nInitiating calculations of BCP metrics following Marsay et al. (2015)...\n')
-[marsay2015] = calculateBcpMetricsFromMarsay2015(0,LOC_LATS,LOC_LONS);
+marsay2015 = calculateBcpMetricsFromMarsay2015(0,LOC_LATS,LOC_LONS);
 fprintf('\n...done.\n')
 
 metricsData(:,iMartinb,iM2015,1,1) = marsay2015.martinb.ave(:);
@@ -627,7 +630,7 @@ metricsData(:,iTeff,iM2015,5,1) = marsay2015.teff1000.min(:);
 
 fprintf('\nInitiating calculations of BCP metrics derived from the metrics of Weber et al. (2016)...\n')
 
-% Weber et al. (2016) outputs, "Teff zeu -> 1000 m", which I have obtained
+% Weber et al. (2016) offer "Teff zeu -> 1000 m", which I have obtained
 % by digitising their Fig. 3C
 
 w2016.teffZeuto1000.upp = [0.193, 0.167, 0.298, 0.261, 0.368, 0.349, 0.177, 0.161, 0.056, 0.055]; % Teff mean + stdv upp
@@ -777,7 +780,7 @@ pubNames = {'Francois et al. (2002)',...
 quadruplicateRefNames = repelem(pubNames, 4); % up to 4 values provided by a publication
 
 % Initialise the output array
-outputArray = NaN(length(quadruplicateRefNames),(3*NUM_LOCS*3));
+outputArray = NaN(length(quadruplicateRefNames),(3*nLocs*3));
 
 %                                     Martin's b                                   z*    Teff  
 %        ----------------------------------------------------------------------- ------ ------
@@ -829,13 +832,13 @@ quadruplicateRefNames(nanRows) = [];
 horzConcatenatedArray = [quadruplicateRefNames,num2cell(outputArray)];
 
 % ... and now vertically with the headers
-headerRowFirst = [{''},repmat({'Martin_b'},1,(NUM_LOCS*3)),...
-    repmat({'z_star'},1,(NUM_LOCS*3)),repmat({'Teff_100_to_1000m'},1,(NUM_LOCS*3))];
+headerRowFirst = [{''},repmat({'Martin_b'},1,(nLocs*3)),...
+    repmat({'z_star'},1,(nLocs*3)),repmat({'Teff_100_to_1000m'},1,(nLocs*3))];
 
 headerRowSecond = [{''},repmat([repmat({'HOT/ALOHA'},1,3),repmat({'BATS/OFP'},1,3),repmat({'EqPac'},1,3),...
     repmat({'PAP-SO'},1,3),repmat({'OSP'},1,3),repmat({'HAUSGARTEN'},1,3)],1,3)];
 
-headerRowThird = ['Reference',repmat({'low_std','mean','upp_std'},1,NUM_LOCS*3)];
+headerRowThird = ['Reference',repmat({'low_std','mean','upp_std'},1,nLocs*3)];
 
 outputTable = cell2table([headerRowFirst;...
                           headerRowSecond;...
@@ -874,7 +877,7 @@ load(fullfile('.','data','processed',filenameOutputMetricsData),'metricsData',..
 fprintf('\nANOVA test to see the effect of geographical location on the different BCP metrics\n')
 
 % Put all samples from each reference together
-localMetricSamples = NaN(3,NUM_LOCS,nPublications*4); % 4 for the number of repetitions
+localMetricSamples = NaN(3,nLocs,nPublications*4); % 4 for the number of repetitions
 for iMetric = [iMartinb,iZstar,iTeff] % response variable
     for iLoc = [iHo,iB,iE,iP,iO,iHa] % treatment (independent variable)
         samples = squeeze(metricsData(iLoc,iMetric,:,1,:)); % 1 for the mean value
@@ -882,7 +885,7 @@ for iMetric = [iMartinb,iZstar,iTeff] % response variable
     end
 end
 
-pvalueTableShapiroTest = zeros(3,NUM_LOCS); % 3 metrics x nLocs
+pvalueTableShapiroTest = zeros(3,nLocs); % 3 metrics x nLocs
 pValueBartlettTest = zeros(3,1);
 pValue = zeros(3,1);
 
@@ -904,7 +907,7 @@ for iMetric = [iMartinb,iZstar,iTeff] % response variable
     data = [loc1, loc2, loc3, loc4, loc5, loc6]; % each column is a group (level, treatment, location)
 
     % Testing if data are normally distributed -Shapiro-Wilk test
-    for iGroup = 1:NUM_LOCS
+    for iGroup = 1:nLocs
         [H, pvalueTableShapiroTest(i,iGroup), W] = swtest(data(:,iGroup)); %adtest(data(:,iCol));
     end
 
@@ -941,7 +944,7 @@ end
 fprintf('\nANOVA test to see the effect of publication on the different BCP metrics\n')
 
 % Put all samples from each reference together
-refMetricSamples = NaN(3,nPublications,NUM_LOCS*4); % 4 for the number of repetitions
+refMetricSamples = NaN(3,nPublications,nLocs*4); % 4 for the number of repetitions
 for iMetric = [iMartinb,iZstar,iTeff] % response variable
     for iReference = 1:nPublications % treatment (independent variable)
         samples = squeeze(metricsData(:,iMetric,iReference,1,:)); % 1 for the mean value

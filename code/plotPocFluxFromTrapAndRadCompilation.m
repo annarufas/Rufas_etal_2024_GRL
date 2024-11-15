@@ -17,7 +17,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 14 Oct 2024                                   %
+%   Version 1.0 - Completed 13 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -34,21 +34,20 @@ addpath(genpath('./resources/internal/'));
 % SECTION 1 - PRESETS
 % -------------------------------------------------------------------------
 
-filenameInputMonthlyPocFlux = 'pocflux_compilation_monthly.mat';
+filenameInputPocFluxCompilation    = 'pocflux_compilation.mat';
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
 
-load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),...
+load(fullfile('.','data','processed',filenameInputPocFluxCompilation),...
     'classicRawProfileValues','classicRawProfileDepths','classicRawProfileDataType',...
-    'classicRawDhValues_cell','classicRawDhDepths_cell','classicRawDhDataType_cell',...
+    'classicRawDhValues_cell','classicRawDhDepths_cell','classicRawDhTag_cell','classicRawDhDataType_cell',...
     'classicMonthlyDhAvg','classicMonthlyDhN','classicMonthlyDhErrTot')
 
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'LOC_DEPTH_HORIZONS','STATION_NAMES','STATION_TAGS','NUM_LOCS','NUM_TARGET_DEPTHS')
+    'LOC_DEPTH_HORIZONS','STATION_NAMES','STATION_TAGS','MAX_NUM_VALUES_PER_MONTH')
 
 % Parameters
+nLocs = size(LOC_DEPTH_HORIZONS,2);
 MOLAR_MASS_CARBON = 12.011; % g mol-1
-MAX_NUM_VALUES_PER_MONTH = 1000;
-
 monthLabel = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'};
 
 % =========================================================================
@@ -57,20 +56,9 @@ monthLabel = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 % SECTION 2 - PLOT FIGURE 2 (POC FLUX DATA BY STATION AND MONTH)
 % -------------------------------------------------------------------------
 
-% localMaxPocFlux = zeros(NUM_LOCS,12);
-% for iLoc = 1:NUM_LOCS
-%     for iMonth = 1:12
-%         allmyvals = squeeze(classicRawProfileValues(:,iMonth,iLoc));
-%         if (~isempty(allmyvals))
-%             localMaxPocFlux(iLoc,iMonth) = MOLAR_MASS_CARBON.*max(allmyvals); % mmol C m-2 d-1 --> mg C m-2 d-1
-%         end
-%     end
-%     disp(max(localMaxPocFlux(iLoc,:)))
-% end
+myColours = parula(3);
 
-mycolours = parula(3);
-
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
 
     figure()
     set(gcf,'Units','Normalized','Position',[0.01 0.05 0.25 0.75],'Color','w')
@@ -83,50 +71,53 @@ for iLoc = 1:NUM_LOCS
 
         %%%%%%%%%%%%%% ALL DATA %%%%%%%%%%%%%%
         
-        yall = squeeze(classicRawProfileValues(:,iMonth,iLoc)).*MOLAR_MASS_CARBON;
+        yall = squeeze(classicRawProfileValues(:,iMonth,iLoc));
         xall = squeeze(classicRawProfileDepths(:,iMonth,iLoc));
-        gall = squeeze(classicRawProfileDataType(:,iMonth,iLoc));
+        tyall = squeeze(classicRawProfileDataType(:,iMonth,iLoc));
 
         %%%%%%%%%%%%%% DH DATA %%%%%%%%%%%%%%
 
-        currMonthDhData     = zeros(NUM_TARGET_DEPTHS,MAX_NUM_VALUES_PER_MONTH);
-        currMonthDhDataType = cell(NUM_TARGET_DEPTHS,MAX_NUM_VALUES_PER_MONTH);
-        currMonthDhDepths   = zeros(NUM_TARGET_DEPTHS,MAX_NUM_VALUES_PER_MONTH);
-        currMonthDhN        = zeros(NUM_TARGET_DEPTHS,1);
+        currMonthDhData     = zeros(3,MAX_NUM_VALUES_PER_MONTH);
+        currMonthDhDataType = cell(3,MAX_NUM_VALUES_PER_MONTH);
+        currMonthDhTag      = cell(3,MAX_NUM_VALUES_PER_MONTH);
+        currMonthDhDepths   = zeros(3,MAX_NUM_VALUES_PER_MONTH);
+        currMonthDhN        = zeros(3,1);
 
-        for iDh = 1:NUM_TARGET_DEPTHS
+        for iDh = 1:3
             allmyvals      = classicRawDhValues_cell{iDh,iMonth,iLoc};
             allmydepths    = classicRawDhDepths_cell{iDh,iMonth,iLoc};
             allmydatatypes = classicRawDhDataType_cell{iDh,iMonth,iLoc};
-            if (~isempty(allmyvals))
-                currMonthDhN(iDh) = length(str2num(allmyvals));
-                currMonthDhData(iDh,1:currMonthDhN(iDh)) = MOLAR_MASS_CARBON.*str2num(allmyvals); % mmol C m-2 d-1 --> mg C m-2 d-1
-                thetypes = textscan(allmydatatypes,'%s');
-                for iDataPoint = 1:currMonthDhN(iDh)
-                    currMonthDhDataType{iDh,iDataPoint} = thetypes{1}{iDataPoint};
+            allmydhtags    = classicRawDhTag_cell{iDh,iMonth,iLoc};
+            if ~isempty(allmyvals)
+                vals = str2num(allmyvals);
+                depths = str2num(allmydepths);
+                types = textscan(allmydatatypes,'%s');
+                tags = textscan(allmydhtags,'%s');
+                % Store processed data
+                currMonthDhN(iDh) = numel(vals);
+                currMonthDhData(iDh,1:currMonthDhN(iDh)) = MOLAR_MASS_CARBON.*vals;
+                currMonthDhDepths(iDh,1:currMonthDhN(iDh)) = depths;
+                % Store data types and tags
+                for iDataPoint = 1:numel(vals)
+                    currMonthDhDataType{iDh,iDataPoint} = types{1}{iDataPoint};
+                    currMonthDhTag{iDh,iDataPoint} = tags{1}{iDataPoint};
                 end
-                currMonthDhDepths(iDh,1:currMonthDhN(iDh)) = str2num(allmydepths);
             end
-        end
+        end % iDh
 
-        [rowIdxs,colIdxs,y] = find(currMonthDhData);
-        nDataPointsInDh = length(y);
-        x = zeros(nDataPointsInDh,1);
-        g = cell(nDataPointsInDh,1);
+        [rowIdxs,colIdxs,ydh] = find(currMonthDhData);
+        nDataPointsInDh = numel(ydh);
+        xdh = zeros(nDataPointsInDh,1);
+        tydh = cell(nDataPointsInDh,1);
         for iDataPoint = 1:nDataPointsInDh
-            x(iDataPoint) = currMonthDhDepths(rowIdxs(iDataPoint),colIdxs(iDataPoint));
-            g(iDataPoint) = currMonthDhDataType(rowIdxs(iDataPoint),colIdxs(iDataPoint));
-            if (strcmp(g{iDataPoint},'trap'))
-                if (x(iDataPoint) > LOC_DEPTH_HORIZONS(iLoc,1,1)... 
-                        && x(iDataPoint) < LOC_DEPTH_HORIZONS(iLoc,2,1))
-                    g(iDataPoint) = {'zeu'};
-                elseif (x(iDataPoint) > LOC_DEPTH_HORIZONS(iLoc,1,2)... 
-                        && x(iDataPoint) < LOC_DEPTH_HORIZONS(iLoc,2,2))
-                    g(iDataPoint) = {'zmeso'};
-                elseif (x(iDataPoint) > LOC_DEPTH_HORIZONS(iLoc,1,3)... 
-                        && x(iDataPoint) < LOC_DEPTH_HORIZONS(iLoc,2,3))
-                    g(iDataPoint) = {'zbathy'};
-                end
+            xdh(iDataPoint) = currMonthDhDepths(rowIdxs(iDataPoint),colIdxs(iDataPoint));
+            tydh(iDataPoint) = currMonthDhDataType(rowIdxs(iDataPoint),colIdxs(iDataPoint));
+            % For sediment trap data, change data type to depth tag for
+            % more specificity
+            if (strcmp(tydh{iDataPoint},'trap'))
+                tydh(iDataPoint) = currMonthDhTag(rowIdxs(iDataPoint),colIdxs(iDataPoint));
+            elseif (strcmp(tydh{iDataPoint},'radionuclide') && rowIdxs(iDataPoint) == 1)
+                tydh(iDataPoint) = {'zeu_rad'};
             end
         end
         
@@ -140,7 +131,7 @@ for iLoc = 1:NUM_LOCS
         % All observations
 
         % Sediment trap
-        mask = strcmp(gall,'trap');
+        mask = strcmp(tyall,'trap');
         if (sum(mask) == 0)
             d01 = plot(NaN, NaN, 'o', 'MarkerEdgeColor', [0.85 0.85 0.85],...
                 'MarkerFaceColor', [0.8 0.8 0.8], 'LineWidth', 1.5,... 
@@ -152,8 +143,9 @@ for iLoc = 1:NUM_LOCS
         end
         max01 = max(yall(mask));
         hold on
+        
         % Radionuclide
-        mask = strcmp(gall,'radionuclide');
+        mask = strcmp(tyall,'radionuclide');
         if (sum(mask) == 0)
             d02 = plot(NaN, NaN, '+', 'MarkerEdgeColor', [0.85 0.85 0.85],...
                 'MarkerFaceColor', [0.8 0.8 0.8], 'LineWidth', 1.5,...
@@ -169,54 +161,57 @@ for iLoc = 1:NUM_LOCS
         % Observations by depth horizon (zeu, zmeso and zbathy)
 
         % zeu - sediment traps
-        mask = strcmp(g,'zeu');
+        mask = strcmp(tydh,'zeu');
         if (sum(mask) == 0)
             d1 = plot(NaN, NaN, 'o','MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(3,:), 'Linewidth', 0.5,...
+                'MarkerFaceColor', myColours(3,:), 'Linewidth', 0.5,...
                 'DisplayName', 'trap, z_{eu}');
         else
-            d1 = plot(y(mask), x(mask), 'o', 'MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(3,:), 'LineWidth', 0.5,...
+            d1 = plot(ydh(mask), xdh(mask), 'o', 'MarkerEdgeColor', 'k',...
+                'MarkerFaceColor', myColours(3,:), 'LineWidth', 0.5,...
                 'DisplayName', 'trap, z_{eu}');
         end
-        max1 = max(y(mask));
+        max1 = max(ydh(mask));
         hold on
+        
         % zeu - radionuclides
-        mask = strcmp(g,'radionuclide');
+        mask = strcmp(tydh,'zeu_rad');
         if (sum(mask) == 0)
             d2 = plot(NaN, NaN, '+k', 'LineWidth', 1.5,... 
                 'DisplayName', 'radionuclide, z_{eu}');
         else
-            d2 = plot(y(mask), x(mask), '+k', 'LineWidth', 1.5,...
+            d2 = plot(ydh(mask), xdh(mask), '+k', 'LineWidth', 1.5,...
                 'DisplayName', 'radionuclide, z_{eu}');
         end
-        max2 = max(y(mask));
+        max2 = max(ydh(mask));
         hold on
+        
         % zmeso - sediment traps
-        mask = strcmp(g,'zmeso');
+        mask = strcmp(tydh,'zmeso');
         if (sum(mask) == 0)
             d3 = plot(NaN, NaN, 'o', 'MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(2,:), 'LineWidth', 0.5,...
+                'MarkerFaceColor', myColours(2,:), 'LineWidth', 0.5,...
                 'DisplayName', 'trap, z_{meso}');
         else
-            d3 = plot(y(mask), x(mask), 'o', 'MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(2,:), 'LineWidth', 0.5,...
+            d3 = plot(ydh(mask), xdh(mask), 'o', 'MarkerEdgeColor', 'k',...
+                'MarkerFaceColor', myColours(2,:), 'LineWidth', 0.5,...
                 'DisplayName', 'trap, z_{meso}');
         end
-        max3 = max(y(mask));
+        max3 = max(ydh(mask));
         hold on
+        
         % zbathy - sediment traps
-        mask = strcmp(g,'zbathy');
+        mask = strcmp(tydh,'zbathy');
         if (sum(mask) == 0)
             d4 = plot(NaN, NaN, 'o', 'MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(1,:), 'LineWidth', 0.5,...
+                'MarkerFaceColor', myColours(1,:), 'LineWidth', 0.5,...
                 'DisplayName', 'trap, z_{bathy}');
         else
-            d4 = plot(y(mask), x(mask), 'o', 'MarkerEdgeColor', 'k',...
-                'MarkerFaceColor', mycolours(1,:), 'LineWidth', 0.5,...
+            d4 = plot(ydh(mask), xdh(mask), 'o', 'MarkerEdgeColor', 'k',...
+                'MarkerFaceColor', myColours(1,:), 'LineWidth', 0.5,...
                 'DisplayName', 'trap, z_{bathy}');
         end
-        max4 = max(y(mask));
+        max4 = max(ydh(mask));
         hold off
 
         box on
@@ -243,7 +238,7 @@ for iLoc = 1:NUM_LOCS
         xticks(xTickValues)
         xticklabels(xTickValues)
 
-        ylim([15 4000])
+        ylim([15 5000])
         yticks([20 100 1000 4000])
         set(gca,'Yscale','log')
         axh = gca;
@@ -328,10 +323,9 @@ theNumberOfDataPoints_swapped(:, [3, 5, 4, 2, 1, 6], :) = theNumberOfDataPoints_
 
 figure()
 set(gcf,'Units','Normalized','Position',[0.01 0.05 0.42 0.20],'Color','w')
-axh = axes('Position', [0.10 0.27 0.82 0.62]);
+axes('Position', [0.10 0.27 0.82 0.62]);
 
-y = squeeze(theNumberOfDataPoints_swapped(:,:,:));
-yy = flipdim(y,3); % to have bathypelagic at the bottom of the plot instead of at the top
+yy = flipdim(theNumberOfDataPoints_swapped,3); % to have bathypelagic at the bottom of the plot instead of at the top
 h = plotBarStackGroups(yy, monthLabel); % plot groups of stacked bars
 
 % Change the colors of each bar segment
@@ -346,11 +340,15 @@ yl.Position(1) = yl.Position(1) - 0.5;
 box on
 title('POC flux')
 
+% Grid lines
+ax = gca;
+ax.YGrid = 'on'; % horizontal grid lines
+ax.XGrid = 'off'; % no vertical grid lines
+
 % Legend
 lg = legend('Near seafloor','Base of mesopelagic','Base of euphotic');
 lg.Position(1) = 0.40; lg.Position(2) = -0.023;
 lg.Orientation = 'horizontal';
-lg.FontSize = 12;
 set(lg,'Box','off') 
 
 set(gca, 'FontSize', 12); 
@@ -378,10 +376,9 @@ theFractionalError_swapped(:, [3, 5, 4, 2, 1, 6], :) = theFractionalError_permut
 
 figure()
 set(gcf,'Units','Normalized','Position',[0.01 0.05 0.42 0.20],'Color','w') 
-axh = axes('Position', [0.10 0.27 0.82 0.62]);
+axes('Position', [0.10 0.27 0.82 0.62]);
 
-y = squeeze(theFractionalError_swapped(:,:,:));
-yy = flipdim(y,3); % to have bathypelagic at the bottom of the plot instead of at the top
+yy = flipdim(theFractionalError_swapped,3); % to have bathypelagic at the bottom of the plot instead of at the top
 h = plotBarStackGroups(yy, monthLabel); % plot groups of stacked bars
 
 % Change the colors of each bar segment
@@ -400,7 +397,6 @@ title('POC flux')
 lg = legend('Near seafloor','Base of mesopelagic','Base of euphotic');
 lg.Position(1) = 0.40; lg.Position(2) = -0.023;
 lg.Orientation = 'horizontal';
-lg.FontSize = 12; 
 set(lg,'Box','off') 
 
 set(gca,'FontSize',12)
@@ -415,17 +411,16 @@ saveFigure('compilation_percentageuncertainty')
 % -------------------------------------------------------------------------
 
 err = squeeze(classicMonthlyDhErrTot(:,:,:)); % nDepths x 12 months x nLocs
-vals = squeeze(classicMonthlyDhAvg(:,:,:)); % nDepths x 12 months x nLocs
+vals = squeeze(classicMonthlyDhAvg(:,:,:));   % nDepths x 12 months x nLocs
 parulaColours = flipud(parula(3));
 
 figure()
 set(gcf,'Units','Normalized','Position',[0.01 0.05 0.70 0.50],'Color','w') 
-haxis = zeros(3,NUM_LOCS);
+haxis = zeros(3,nLocs);
 iSubplot = 0;
 
-for iDepthLayer = 1:3
-
-    for iStation = 1:NUM_LOCS
+for iDh = 1:3
+    for iStation = 1:nLocs
         
         % Re-order
         switch iStation
@@ -445,7 +440,7 @@ for iDepthLayer = 1:3
         
         iSubplot = iSubplot + 1;
 
-        haxis(iSubplot) = subaxis(3,NUM_LOCS,iSubplot,'Spacing',0.01,'Padding',0.01,'Margin', 0.07);
+        haxis(iSubplot) = subaxis(3,nLocs,iSubplot,'Spacing',0.01,'Padding',0.01,'Margin', 0.07);
         ax(iSubplot).pos = get(haxis(iSubplot),'Position');
 
         if (iSubplot >= 1 && iSubplot <= 6)
@@ -457,46 +452,39 @@ for iDepthLayer = 1:3
         end
         set(haxis(iSubplot),'Position',ax(iSubplot).pos)
 
-        hbar = bar(haxis(iSubplot),(1:12),squeeze(vals(iDepthLayer,:,iLoc)),...
+        hbar = bar(haxis(iSubplot),(1:12),squeeze(vals(iDh,:,iLoc)),...
             'BarWidth',0.75,'FaceColor','flat');
-        hbar.CData(:,:) = repmat(parulaColours(iDepthLayer,:),[12 1]);
+        hbar.CData(:,:) = repmat(parulaColours(iDh,:),[12 1]);
         hold on
         
-        her = errorbar(haxis(iSubplot),(1:12),squeeze(vals(iDepthLayer,:,iLoc)),...
-            zeros(size(squeeze(vals(iDepthLayer,:,iLoc)))),squeeze(err(iDepthLayer,:,iLoc)));    
+        her = errorbar(haxis(iSubplot),(1:12),squeeze(vals(iDh,:,iLoc)),...
+            zeros(size(squeeze(vals(iDh,:,iLoc)))),squeeze(err(iDh,:,iLoc)));    
         her.Color = [0 0 0];                            
         her.LineStyle = 'none'; 
         hold off
         
-        % Euphotic
+        % Base euphotic
         if (iSubplot >= 1 && iSubplot <= 6)
-            ylim([0 22])
-            yticks([0,5,10,15,20])
-            yticklabels({'0','5','10','15','20'});
+            ylim([0 300])
+            yticks([0,50,100,150,200,250,300])
+            yticklabels({'0','50','100','150','200','250','300'});
             ytickformat('%.0f')
-        % Mesopelagic
+        % Base mesopelagic
         elseif (iSubplot > 6 && iSubplot <= 12)
-            ylim([0 2.2])
-            yticks([0,0.5,1,1.5,2])
-            yticklabels({'0','0.5','1','1.5','2'});
-            ytickformat('%.1f')
-        % Bathypelagic
+            ylim([0 30])
+            yticks([0,5,10,15,20,25,30])
+            yticklabels({'0','5','10','15','20','25','30'});
+            ytickformat('%.0f')
+        % Near seafloor
         else
-            ylim([0 2.2])
-            yticks([0,0.5,1,1.5,2])
-            yticklabels({'0','0.5','1','1.5','2'});
-            ytickformat('%.1f')
+            ylim([0 30])
+            yticks([0,5,10,15,20,25,30])
+            yticklabels({'0','5','10','15','20','25','30'});
+            ytickformat('%.0f')
         end
         
         xlim([0.5 12+0.5])
         xticks(1:12);
-%         if (iMonth == 11 || iMonth == 12)
-%             xlabel('Year');
-%             xticklabels(yearVectorData);
-%             xtickangle(90); 
-%         else
-%             xticklabels([]);
-%         end
         xticklabels(monthLabel);
         xtickangle(90); 
         axh = gca;
@@ -507,12 +495,7 @@ for iDepthLayer = 1:3
             tl.Visible = 'on';
             tl.Position(2) = tl.Position(2) + 0.20;
         end
-%         if (iSubplot == 4)
-%             yl = ylabel('POC flux (mg C m^{-2} d^{-1})','FontSize',14);
-%             yl.Visible = 'on';
-%             yl.Position(1) = yl.Position(1) - 1;
-%         end
-        
+
         grid on;
         axh.XGrid = 'off';
         axh.YGrid = 'on';
@@ -522,4 +505,3 @@ for iDepthLayer = 1:3
 end
 
 saveFigure('compilation_flux_by_month_and_station')
-

@@ -17,11 +17,13 @@ function [depthsBinned,fluxBinned] = binPocFluxDataAtRegularDepthIntervals(...
 %       depthsBinned - vector of depth centres for each bin
 %       fluxBinned   - vector of binned POC flux values and their errors
 %
+%   This script uses this external function: 
+%       worstcase.m  - FileExchange
 %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD
 %   Anna.RufasBlanco@earth.ox.ac.uk
 %
-%   Version 1.0 - Completed 4 Nov 2024  
+%   Version 1.0 - Completed 13 Nov 2024  
 %
 % =========================================================================
 %%
@@ -37,7 +39,7 @@ maxDepth = 5000;
 %% Allocate memory for binned data
 
 depthsBinned = NaN(maxNumDepths,1);
-fluxBinned = NaN(maxNumDepths,2); % 2nd dim 1=avg, 2=err
+fluxBinned = NaN(maxNumDepths,2); % 2nd dim: 1=avg, 2=err
 
 %% Build the bins
 
@@ -50,7 +52,7 @@ binEdges = (roundedDepth:binSize:maxDepth)';
 
 fluxAvgBinned = NaN(length(binEdges), 1);
 fluxErrBinned = NaN(length(binEdges), 1);
-depthCenter = NaN(length(binEdges), 1);
+depthCentre = NaN(length(binEdges), 1);
 
 for iBin = 1:length(binEdges)
 
@@ -67,11 +69,11 @@ for iBin = 1:length(binEdges)
         fluxAvgBinned(iBin) = calculateWeightedAvg(paramsWeightedAverage);
 
         % Calculate propagated error (worst-case)
-        [~,~,~,f_MID,f_UB] = worstcase(...
+        [~,~,~,f_MID,f_UB,~,~] = worstcase(...
             @(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
             paramsWeightedAverage, errBinMembers);
         fluxErrBinned(iBin) = f_UB - f_MID;
-        depthCenter(iBin) = binEdges(iBin);
+        depthCentre(iBin) = binEdges(iBin);
     end
 end
 
@@ -80,6 +82,6 @@ validIdx = ~isnan(fluxAvgBinned);
 nValid = sum(validIdx);
 fluxBinned(1:nValid,1) = fluxAvgBinned(validIdx);
 fluxBinned(1:nValid,2) = fluxErrBinned(validIdx);
-depthsBinned(1:nValid) = depthCenter(validIdx);
+depthsBinned(1:nValid) = depthCentre(validIdx);
     
 end

@@ -2,22 +2,26 @@
 % ======================================================================= %
 %                                                                         %
 % This script reads in the POC flux compilation created for this study    %
-% (Dataset S1), calculates monthly and annual averages and propagates     %
-% error accordingly. The script has 8 sections:                           %
+% (Dataset S0), calculates monthly and annual averages and propagates     %
+% error accordingly. The script has 9 sections:                           %
 %   Section 1 - Presets.                                                  %
 %   Section 2 - Load the dataset and manipulate the data array.           %
-%   Section 3 - Bin data monthly by depth horizon and propagate error.    %
-%   Section 4 - Bin data monthly by unique depth and propagate error.     %
-%   Section 5 - Bin data annually by depth horizon and propagate error.   %
-%   Section 6 - Bin data annually by unique depth and propagate error.    %
-%   Section 7 - Calculate the number of data points based on various      % 
+%   Section 3 - Get euphotic layer depth.                                 %
+%   Section 4 - Bin data monthly by depth horizon and propagate error.    %
+%   Section 5 - Bin data monthly by unique depth and propagate error.     %
+%   Section 6 - Bin data annually by depth horizon and propagate error.   %
+%   Section 7 - Bin data annually by unique depth and propagate error.    %
+%   Section 8 - Calculate the number of data points based on various      % 
 %               criteria.                                                 %
-%   Section 8 - Save the data.                                            %              
+%   Section 9 - Save the data.                                            %              
+%                                                                         %
+%   This script uses these external functions:                            % 
+%       cleverTimeInterpolation.m - custom function                       %
 %                                                                         %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 14 Oct 2024                                   %                                  
+%   Version 1.0 - Completed 13 Nov 2024                                   %                                  
 %                                                                         %
 % ======================================================================= %
 
@@ -36,65 +40,60 @@ addpath(genpath('./resources/internal/'));
 
 % Filename declarations 
 filenameInputFluxCompilation        = 'dataset_s0_trap_and_radionuclide_compilation.xlsx';
-filenameOutputMonthlyFlux           = 'pocflux_compilation_monthly.mat';
+filenameOutputFluxCompilation       = 'pocflux_compilation.mat';
 filenameOutputTimeseriesInformation = 'timeseries_station_information.mat';
 
 % Define parameters
-RAND_ERR_FRAC = 0.30; % 30% (Buesseler et al. 2000, Buesseler et al. 2007, Stanley et al. 2004)
-SYS_ERR_FRAC = 0.10; % 10%, based on a literature review
+POCFLUX_RAND_ERR_FRAC = 0.30; % 30% (Buesseler et al. 2000, Buesseler et al. 2007, Stanley et al. 2004)
+POCFLUX_SYS_ERR_FRAC = 0.10; % 10%, based on a literature review
+OC_ERR_FRAC = 0.10; % 10%, based on McKinna et al. 2019
+MAX_ZEU = 200; % m
 MOLAR_MASS_CARBON = 12.011; % g mol-1
-MAX_NUM_VALS_PER_MONTH = 1000;
+MAX_NUM_VALUES_PER_MONTH = 1000;
 MAX_NUM_DEPTHS_PER_PROFILE = 100;
+
+% Load the global-ocean euphotic layer depth product calculated from 
+% CMEMS' kd used to calculate zeu
+load(fullfile('.','data','interim','zeu_calculated_kdcmems_mldcmems_pointonepercentpar0.mat'),...
+    'zeu','zeu_lat','zeu_lon')
 
 % Station information
 STATION_NAMES = {'EqPac','OSP','PAP-SO','BATS/OFP','HOT/ALOHA','HAUSGARTEN'}; 
 STATION_TAGS = {'eqpac','osp','papso','batsofp','hotaloha','hausgarten'}; 
-NUM_LOCS = length(STATION_NAMES);
+nLocs = length(STATION_NAMES);
 
 % The raw POC flux data array should contain data for the following ocean
-% sites, which have the following latitude (lat), longitude (lon), 
-% euphotic zone depth (zeu), lower depth of the mesopelagic (zmeso) and 
-% bathypelagic depth (zbathy)
-%
-%            lat    lon     zeu                              zmeso      zbathy
-% EqPac      0      -140    75–125                           880        3618
-% OSP        50     -145    50 (summer), 100-110 (winter)    1000       3800
-% PAP-SO     49     -16.5   50 (summer, there's only summmer)1000       3000
-% BATS/OFP   31.6   -64.2   100-150                          1500       3200
-% HOT/ALOHA  22.45  -158    70-150                           1500       4000
-% HAUSGARTEN 79       4.3   80-100                           1225-1250  2495-2560
+% sites, which have the following latitude and longitudes:
 
-LOC_LATS = [   0,   50,    49,  31.6, 22.5,  79]; % HOT/ALOHA lat slightly modified to extract data from WOA18 
+          % EqPac  OSP PAP-SO   BATS  HOT HAUSGARTEN
+LOC_LATS = [   0,   50,    49,  31.6, 22.5,  79]; % HOT/ALOHA lat slightly modified to extract data from WOA 
 LOC_LONS = [-140, -145, -16.5, -64.2, -158, 4.3];
 
-NUM_TARGET_DEPTHS = 3; % zeu, zmeso, zbathy, with exact depths varying per location
-LOC_DEPTH_HORIZONS = zeros(NUM_LOCS,2,NUM_TARGET_DEPTHS); % 3 depth horizons, with 2 boundaries for each
+% The following depth horizons defined on the data will be used for data 
+% summaries
+LOC_DEPTH_HORIZONS = zeros(12,nLocs,2,3); % 2 boundaries for each of the 3 depth horizons
 
-% EqPac                            % OSP                              % PAP-SO                          
-LOC_DEPTH_HORIZONS(1,1,1) = 74;    LOC_DEPTH_HORIZONS(2,1,1) = 39;    LOC_DEPTH_HORIZONS(3,1,1) = 39;   
-LOC_DEPTH_HORIZONS(1,2,1) = 126;   LOC_DEPTH_HORIZONS(2,2,1) = 111;   LOC_DEPTH_HORIZONS(3,2,1) = 71;   
+% EqPac                              % OSP                                % PAP-SO                          
+% Targets data at zeu                Targets data at zeu                  Targets data at zeu
+LOC_DEPTH_HORIZONS(:,1,1,1) = NaN;   LOC_DEPTH_HORIZONS(:,2,1,1) = NaN;   LOC_DEPTH_HORIZONS(:,3,1,1) = NaN;   
+LOC_DEPTH_HORIZONS(:,1,2,1) = NaN;   LOC_DEPTH_HORIZONS(:,2,2,1) = NaN;   LOC_DEPTH_HORIZONS(:,3,2,1) = NaN;   
+% Targets the trap at 880 m          Targets the traps at 1000 & 1009 m   Targets the trap at 1000 m     
+LOC_DEPTH_HORIZONS(:,1,1,2) = 870;   LOC_DEPTH_HORIZONS(:,2,1,2) = 990;   LOC_DEPTH_HORIZONS(:,3,1,2) = 990;  
+LOC_DEPTH_HORIZONS(:,1,2,2) = 890;   LOC_DEPTH_HORIZONS(:,2,2,2) = 1010;  LOC_DEPTH_HORIZONS(:,3,2,2) = 1010; 
+% Targets the trap at 3618 m         Targets the traps at 3800 & 3805 m   Targets the trap at 4700 m
+LOC_DEPTH_HORIZONS(:,1,1,3) = 3610;  LOC_DEPTH_HORIZONS(:,2,1,3) = 3790;  LOC_DEPTH_HORIZONS(:,3,1,3) = 4690; 
+LOC_DEPTH_HORIZONS(:,1,2,3) = 3630;  LOC_DEPTH_HORIZONS(:,2,2,3) = 3810;  LOC_DEPTH_HORIZONS(:,3,2,3) = 4710; 
 
-LOC_DEPTH_HORIZONS(1,1,2) = 870;   LOC_DEPTH_HORIZONS(2,1,2) = 980;   LOC_DEPTH_HORIZONS(3,1,2) = 990;  
-LOC_DEPTH_HORIZONS(1,2,2) = 900;   LOC_DEPTH_HORIZONS(2,2,2) = 1010;  LOC_DEPTH_HORIZONS(3,2,2) = 1010; 
-
-LOC_DEPTH_HORIZONS(1,1,3) = 3600;  LOC_DEPTH_HORIZONS(2,1,3) = 3699;  LOC_DEPTH_HORIZONS(3,1,3) = 2990; 
-LOC_DEPTH_HORIZONS(1,2,3) = 3630;  LOC_DEPTH_HORIZONS(2,2,3) = 3806;  LOC_DEPTH_HORIZONS(3,2,3) = 3010; 
-
-% BATS/OFP                         % HOT/ALOHA                        % HAUSGARTEN
-LOC_DEPTH_HORIZONS(4,1,1) = 39;    LOC_DEPTH_HORIZONS(5,1,1) = 69;    LOC_DEPTH_HORIZONS(6,1,1) = 79;
-LOC_DEPTH_HORIZONS(4,2,1) = 151;   LOC_DEPTH_HORIZONS(5,2,1) = 151;   LOC_DEPTH_HORIZONS(6,2,1) = 110;
-
-LOC_DEPTH_HORIZONS(4,1,2) = 1490;  LOC_DEPTH_HORIZONS(5,1,2) = 1490;  LOC_DEPTH_HORIZONS(6,1,2) = 1210;
-LOC_DEPTH_HORIZONS(4,2,2) = 1510;  LOC_DEPTH_HORIZONS(5,2,2) = 1510;  LOC_DEPTH_HORIZONS(6,2,2) = 1260;
-
-LOC_DEPTH_HORIZONS(4,1,3) = 3190;  LOC_DEPTH_HORIZONS(5,1,3) = 3990;  LOC_DEPTH_HORIZONS(6,1,3) = 2490;
-LOC_DEPTH_HORIZONS(4,2,3) = 3210;  LOC_DEPTH_HORIZONS(5,2,3) = 4010;  LOC_DEPTH_HORIZONS(6,2,3) = 2570;
-
-
-% Save for use in other scripts
-save(fullfile('.','data','processed',filenameOutputTimeseriesInformation),...
-    'LOC_LATS','LOC_LONS','LOC_DEPTH_HORIZONS','STATION_NAMES',...
-    'STATION_TAGS','NUM_LOCS','NUM_TARGET_DEPTHS')
+% BATS/OFP                           % HOT/ALOHA                          % HAUSGARTEN
+% Targets data at zeu                Targets data at zeu                  Targets data at zeu 
+LOC_DEPTH_HORIZONS(:,4,1,1) = NaN;   LOC_DEPTH_HORIZONS(:,5,1,1) = NaN;   LOC_DEPTH_HORIZONS(:,6,1,1) = NaN;
+LOC_DEPTH_HORIZONS(:,4,2,1) = NaN;   LOC_DEPTH_HORIZONS(:,5,2,1) = NaN;   LOC_DEPTH_HORIZONS(:,6,2,1) = NaN;
+% Targets the trap at 1500 m         Targets the trap at 1500 m           Targets the traps at 1225 & 1250 m
+LOC_DEPTH_HORIZONS(:,4,1,2) = 1490;  LOC_DEPTH_HORIZONS(:,5,1,2) = 1490;  LOC_DEPTH_HORIZONS(:,6,1,2) = 1220;
+LOC_DEPTH_HORIZONS(:,4,2,2) = 1510;  LOC_DEPTH_HORIZONS(:,5,2,2) = 1510;  LOC_DEPTH_HORIZONS(:,6,2,2) = 1260;
+% Targets the trap at 3200 m         Targets the trap at 4000 m           Targets the traps at 2560 & 2618 m
+LOC_DEPTH_HORIZONS(:,4,1,3) = 3190;  LOC_DEPTH_HORIZONS(:,5,1,3) = 3990;  LOC_DEPTH_HORIZONS(:,6,1,3) = 2550;
+LOC_DEPTH_HORIZONS(:,4,2,3) = 3210;  LOC_DEPTH_HORIZONS(:,5,2,3) = 4010;  LOC_DEPTH_HORIZONS(:,6,2,3) = 2620;
 
 % =========================================================================
 %%
@@ -124,22 +123,57 @@ D.depthHorizon = cell(height(D),1);
 D = sortrows(D,'tag');
 
 % Add the sys error column
-D.syserr_POC_mmol_m2_d = SYS_ERR_FRAC.*D.POC_mmol_m2_d;
+D.syserr_POC_mmol_m2_d = POCFLUX_SYS_ERR_FRAC.*D.POC_mmol_m2_d;
 
 % Manipulate the random error
 % Calculate random error in mmol/m^2/d and update if necessary
-D.randerr_POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d)) = RAND_ERR_FRAC .* D.POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d));
+D.randerr_POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d)) = POCFLUX_RAND_ERR_FRAC .* D.POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d));
 % Update random error in mg/m^2/d
 D.randerr_POC_mg_m2_d = MOLAR_MASS_CARBON .* D.randerr_POC_mmol_m2_d;
 
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 3 - BIN DATA MONTHLY BY DEPTH HORIZON AND PROPAGATE ERROR
+% SECTION 3 - GET EUPHOTIC LAYER DEPTH
 % -------------------------------------------------------------------------
 
-% Extract data for the desired depth horizons and calculate the monthly 
-% averages
+% Query points for interpolation
+qLats = LOC_LATS;
+qLons = LOC_LONS;
+
+% Original data grid
+[X,Y,T] = ndgrid(zeu_lat,zeu_lon,(1:12)');
+
+% Interpolant 
+F = griddedInterpolant(X, Y, T, zeu, 'linear'); 
+
+% Extract data for the study locations (defined by qLats and qLons)
+qZeuMonthly = NaN(12,nLocs);
+for iLoc = 1:nLocs
+    [qX,qY,qT] = ndgrid(qLats(iLoc),qLons(iLoc),(1:12)');
+    qZeuMonthly_temp = F(qX,qY,qT);
+
+    % Replace NaNs using an interpolation method
+    if any(isnan(qZeuMonthly_temp))
+        qZeuMonthly_temp(isnan(qZeuMonthly_temp)) = 0;
+        qZeuMonthly(:,iLoc) = cleverTimeInterpolation(qZeuMonthly_temp,(1:12));
+    else
+        qZeuMonthly(:,iLoc) = qZeuMonthly_temp;
+    end
+    
+    % Add information to LOC_DEPTH_HORIZONS array
+    LOC_DEPTH_HORIZONS(:,iLoc,1,1) = qZeuMonthly(:,iLoc)... 
+        - OC_ERR_FRAC.*qZeuMonthly(:,iLoc); % -10%
+    LOC_DEPTH_HORIZONS(:,iLoc,2,1) = qZeuMonthly(:,iLoc)... 
+        + OC_ERR_FRAC.*qZeuMonthly(:,iLoc); % +10%
+end
+
+% =========================================================================
+%%
+% -------------------------------------------------------------------------
+% SECTION 4 - BIN DATA MONTHLY BY DEPTH HORIZON AND PROPAGATE ERROR (THESE
+% DATA WILL BE USED FOR SUMMARIES AND PLOTTING)
+% -------------------------------------------------------------------------
 
 % The variables that we want to extract
 tagPocValues = 'POC_mmol_m2_d';
@@ -148,25 +182,22 @@ tagRandError = 'randerr_POC_mmol_m2_d';
 tagDepthHorizons = {'zeu','zmeso','zbathy'};
 
 % Define output arrays
-classicRawProfileValues_cell   = cell(12,NUM_LOCS); 
-classicRawProfileErrRand_cell  = cell(12,NUM_LOCS); 
-classicRawProfileErrSys_cell   = cell(12,NUM_LOCS);
-classicRawProfileDepths_cell   = cell(12,NUM_LOCS); 
-classicRawProfileDataType_cell = cell(12,NUM_LOCS); 
+classicRawProfileValues_cell   = cell(12,nLocs); 
+classicRawProfileErrRand_cell  = cell(12,nLocs); 
+classicRawProfileErrSys_cell   = cell(12,nLocs);
+classicRawProfileDepths_cell   = cell(12,nLocs); 
+classicRawProfileDataType_cell = cell(12,nLocs); 
 
-classicRawDhValues_cell   = cell(NUM_TARGET_DEPTHS,12,NUM_LOCS); 
-classicRawDhDepths_cell   = cell(NUM_TARGET_DEPTHS,12,NUM_LOCS); 
-classicRawDhDataType_cell = cell(NUM_TARGET_DEPTHS,12,NUM_LOCS); % sediment trap vs radionuclides
+classicRawDhValues_cell   = cell(3,12,nLocs); 
+classicRawDhDepths_cell   = cell(3,12,nLocs); 
+classicRawDhDataType_cell = cell(3,12,nLocs); % sediment trap vs radionuclides
+classicRawDhTag_cell      = cell(3,12,nLocs); % zeu, zmeso or zbathy
 
-classicMonthlyDhAvg    = NaN(NUM_TARGET_DEPTHS,12,NUM_LOCS); % mean
-classicMonthlyDhN      = zeros(NUM_TARGET_DEPTHS,12,NUM_LOCS); % number of values
-classicMonthlyDhErrTot = NaN(NUM_TARGET_DEPTHS,12,NUM_LOCS); % total error
+classicMonthlyDhAvg    = NaN(3,12,nLocs);   % mean
+classicMonthlyDhN      = zeros(3,12,nLocs); % number of values
+classicMonthlyDhErrTot = NaN(3,12,nLocs);   % total error
 
-for iLoc = 1:NUM_LOCS
-    
-    % (1) Pull all the data at that station and save it to output arrays
-    
-    currStatData = table; % initialise a table
+for iLoc = 1:nLocs
     currStatData = D(D.tag == STATION_NAMES{iLoc},:);
 
     % Locate the variables that are relevant
@@ -178,19 +209,18 @@ for iLoc = 1:NUM_LOCS
     colIdsAll(5) = find(strcmpi(currStatData.Properties.VariableNames,'depth'));
     colIdsAll(6) = find(strcmpi(currStatData.Properties.VariableNames,'method'));
 
-    % Extract those
+    % Extract these variables
     currStatData = currStatData(:,colIdsAll');
             
     % Identify rows with any NaN values
     rowsWithNaN = any(ismissing(currStatData), 2);
 
     % Remove rows with NaN values
-    currStatDataNonNaN = currStatData(~rowsWithNaN, :);
+    currStatDataValid = currStatData(~rowsWithNaN, :);
     
-    % Save all data to output arrays
+    % (1) Pull all the data at that station and save it to output arrays
     for iMonth = 1:12
-        currMonthData = table;
-        currMonthData = currStatDataNonNaN(currStatDataNonNaN.month == num2str(iMonth),:);
+        currMonthData = currStatDataValid(currStatDataValid.month == num2str(iMonth),:);
         if (~isempty(currMonthData))
             classicRawProfileValues_cell{iMonth,iLoc} = num2str(currMonthData{:,1}'); 
             classicRawProfileErrSys_cell{iMonth,iLoc} = num2str(currMonthData{:,2}');
@@ -199,63 +229,81 @@ for iLoc = 1:NUM_LOCS
             classicRawProfileDataType_cell{iMonth,iLoc} = strjoin(currMonthData{:,6}'); 
         end  
     end
-    
-    % (2) Pull data by the depth horizon of interest
-    
-    for iDh = 1:NUM_TARGET_DEPTHS
-        
-        currDhData = table; % initialise a table
-        currDhData = currStatDataNonNaN(currStatDataNonNaN.depth > LOC_DEPTH_HORIZONS(iLoc,1,iDh)...
-            & currStatDataNonNaN.depth < LOC_DEPTH_HORIZONS(iLoc,2,iDh),:);
-       
-        % Add the depth horizon tag to currDhData
-        currDhData.depthHorizon(:) = repmat(tagDepthHorizons(iDh),height(currDhData),1);
-        
-        % Add ALSO the depth horizon tag to the D array for use later
-        idxRows = find(D.tag == STATION_NAMES{iLoc} &...
-            D.depth > LOC_DEPTH_HORIZONS(iLoc,1,iDh) & D.depth < LOC_DEPTH_HORIZONS(iLoc,2,iDh));
-        D.depthHorizon(idxRows) = repmat(tagDepthHorizons(iDh),length(idxRows),1);
- 
-        % (3) Pull data by month
-        for iMonth = 1:12
 
-            currMonthData = table; % initialise a table
-            currMonthData = currDhData(currDhData.month == num2str(iMonth),:);
-
+    % (2) Pull data by month
+    for iMonth = 1:12
+        monthCondition = currStatDataValid.month == num2str(iMonth);
+        currStatMonthData = currStatDataValid(monthCondition,:);
+            
+        % (3) Pull data by the depth horizon of interest
+        for iDh = 1:3 
+            depthCondition = currStatMonthData.depth > LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) & ...
+                             currStatMonthData.depth < LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh);
+            
+            if sum(depthCondition) ~= 0
+                
+                currStatMonthDhData = currStatMonthData(depthCondition,:);
+                
+            elseif sum(depthCondition) == 0
+                
+                % For iDh = 1, if there are no data between the depth layer 
+                % boundaries defined in LOC_DEPTH_HORIZONS, find the data
+                % at closest depth that is < 200 m
+                if iDh == 1 && any(currStatMonthData.depth < MAX_ZEU)
+                    absDiff = abs(currStatMonthData.depth - qZeuMonthly(iMonth,iLoc)); % calculate the absolute difference between each depth and locZeu
+                    minDiff = min(absDiff); % find the minimum absolute difference
+                    currStatMonthDhData = currStatMonthData(absDiff == minDiff,:); % extract all depths that match the minimum absolute difference
+                
+                    % Redefine LOC_DEPTH_HORIZONS based on the depth above
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) = unique(currStatMonthDhData.depth);
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh) = unique(currStatMonthDhData.depth);
+                
+                else
+                    currStatMonthDhData = [];
+                end
+            end
+            
             % Proceed if there are data in the current month
-            if (~isempty(currMonthData))
+            if ~isempty(currStatMonthDhData)
+
+                % Add the depth horizon tag to currStatMonthDhData
+                currStatMonthDhData.depthHorizon(:) = tagDepthHorizons(iDh);
+
+                % Add the depth horizon tag to D array for later use
+                idxRows = find(D.tag == STATION_NAMES{iLoc} &...
+                        D.depth > LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) &...
+                        D.depth < LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh));
+                D.depthHorizon(idxRows) = tagDepthHorizons(iDh);
 
                 % Store values, their depth and their type
-                classicRawDhValues_cell{iDh,iMonth,iLoc} = num2str(currMonthData{:,1}'); 
-                classicRawDhDepths_cell{iDh,iMonth,iLoc} = num2str(currMonthData{:,5}');
-                classicRawDhDataType_cell{iDh,iMonth,iLoc} = strjoin(currMonthData{:,6}');                  
+                classicRawDhValues_cell{iDh,iMonth,iLoc} = num2str(currStatMonthDhData{:,1}'); 
+                classicRawDhDepths_cell{iDh,iMonth,iLoc} = num2str(currStatMonthDhData{:,5}');
+                classicRawDhDataType_cell{iDh,iMonth,iLoc} = strjoin(currStatMonthDhData{:,6}'); 
+                classicRawDhTag_cell{iDh,iMonth,iLoc} = strjoin(currStatMonthDhData{:,7}');
 
                 % (4) Calculate the average & get the associated no. data points (N)
-                classicMonthlyDhAvg(iDh,iMonth,iLoc) = mean(currMonthData{:,1});
-                classicMonthlyDhN(iDh,iMonth,iLoc) = sum(currMonthData{:,1} >= 0,'omitnan');
+                classicMonthlyDhAvg(iDh,iMonth,iLoc) = mean(currStatMonthDhData{:,1}).*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
+                classicMonthlyDhN(iDh,iMonth,iLoc) = sum(currStatMonthDhData{:,1} >= 0,'omitnan');
                 
-                % (5) Calculate net error.
-                vals = squeeze(currMonthData{:,1});
-                errSys = squeeze(currMonthData{:,2});
-                errRand = squeeze(currMonthData{:,3});
+                % (5) Calculate net error (propagate type A and type B
+                % errors separately)
+                vals = squeeze(currStatMonthDhData{:,1});
+                errSys = squeeze(currStatMonthDhData{:,2});
+                errRand = squeeze(currStatMonthDhData{:,3});
                 errSys(isnan(errSys)) = 0;
                 errRand(isnan(errRand)) = 0;
 
-                % We will propagate type A and type B errors separately.
-                
                 % Error propagation of random errors (type A)
-                [x_LB,x_UB,f_LB,f_MID,f_UB,minus_percent,plus_percent] =... 
-                    worstcase(@(x) mean(x),vals,errRand);
+                [~,~,~,f_MID,f_UB,~,~] = worstcase(@(x) mean(x),vals,errRand);
                 typeAuncertainty = f_UB - f_MID;
 
                 % Error propagation of the systematic errors (type B)
-                [x_LB,x_UB,f_LB,f_MID,f_UB,minus_percent,plus_percent] =... 
-                    worstcase(@(x) mean(x),vals,errSys);
+                [~,~,~,f_MID,f_UB,~,~] = worstcase(@(x) mean(x),vals,errSys);
                 typeBuncertainty = f_UB - f_MID;
 
                 % Net error: sum of type A and type B errors in the quadrature
                 classicMonthlyDhErrTot(iDh,iMonth,iLoc) =...
-                    sqrt(typeAuncertainty^2 + typeBuncertainty^2);
+                    sqrt(typeAuncertainty^2 + typeBuncertainty^2).*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
 
             end % are there data in the current month?
         end % iMonth    
@@ -268,7 +316,7 @@ end % iLoc
 % a_stdperc = (a_err./a_vals).*100;
 % a_n = squeeze(classicMonthlyDhN(NUM_LOCS,:,:));
 
-% Tide up the variable 'depth horizon'. Find the rows that have not been 
+% Tide up the variable 'depthHorizon'. Find the rows that have not been 
 % assigned into a depth horizon and assign them a 'NaN' string
 isEmptyDhTag = cellfun(@isempty,D.depthHorizon);
 iEmptyRows = find(isEmptyDhTag);
@@ -280,37 +328,34 @@ DP = D(D.depthHorizon ~= 'NaN',:); % data processed
 
 clear vals errRand errSys
 
+% Save for use in other scripts
+save(fullfile('.','data','processed',filenameOutputTimeseriesInformation),...
+    'LOC_LATS','LOC_LONS','LOC_DEPTH_HORIZONS','STATION_NAMES','STATION_TAGS',...
+    'MAX_NUM_VALUES_PER_MONTH','MAX_NUM_DEPTHS_PER_PROFILE','qZeuMonthly','MAX_ZEU')
+
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 4 - BIN DATA MONTHLY BY UNIQUE DEPTH AND PROPAGATE ERROR
+% SECTION 5 - BIN DATA MONTHLY BY UNIQUE DEPTH AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-% Whereas the previous section was necessary to prepare POC flux data to 
-% calculate Teff –a metric that needs data at specific depth horizons–, 
-% this section is necessary to prepare POC flux data to calculate Martin's 
-% b and z* coefficients –two metrics that need POC flux profiles–.
+% Unfold the data stored in three cell arrays and store them into numerical 
+% arrays.
 
-% .........................................................................
+classicRawProfileValues   = zeros(MAX_NUM_VALUES_PER_MONTH,12,nLocs);
+classicRawProfileErrRand  = zeros(MAX_NUM_VALUES_PER_MONTH,12,nLocs);
+classicRawProfileErrSys   = zeros(MAX_NUM_VALUES_PER_MONTH,12,nLocs);
+classicRawProfileDepths   = zeros(MAX_NUM_VALUES_PER_MONTH,12,nLocs);
+classicRawProfileDataType = cell(MAX_NUM_VALUES_PER_MONTH,12,nLocs);
 
-% The following will unfold the data stored in three cell arrays (flux 
-% values, their corresponding depths and the type of flux) and will store 
-% them into numerical arrays.
-
-classicRawProfileValues   = zeros(MAX_NUM_VALS_PER_MONTH,12,NUM_LOCS);
-classicRawProfileErrRand  = zeros(MAX_NUM_VALS_PER_MONTH,12,NUM_LOCS);
-classicRawProfileErrSys   = zeros(MAX_NUM_VALS_PER_MONTH,12,NUM_LOCS);
-classicRawProfileDepths   = zeros(MAX_NUM_VALS_PER_MONTH,12,NUM_LOCS);
-classicRawProfileDataType = cell(MAX_NUM_VALS_PER_MONTH,12,NUM_LOCS);
-
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     for iMonth = 1:12
 
-        currMonthData     = zeros(MAX_NUM_VALS_PER_MONTH,1);
-        currMonthErrRand  = zeros(MAX_NUM_VALS_PER_MONTH,1);
-        currMonthErrSys   = zeros(MAX_NUM_VALS_PER_MONTH,1);
-        currMonthDepths   = zeros(MAX_NUM_VALS_PER_MONTH,1);
-        currMonthDataType = cell(MAX_NUM_VALS_PER_MONTH,1);
+        currMonthData     = zeros(MAX_NUM_VALUES_PER_MONTH,1);
+        currMonthErrRand  = zeros(MAX_NUM_VALUES_PER_MONTH,1);
+        currMonthErrSys   = zeros(MAX_NUM_VALUES_PER_MONTH,1);
+        currMonthDepths   = zeros(MAX_NUM_VALUES_PER_MONTH,1);
+        currMonthDataType = cell(MAX_NUM_VALUES_PER_MONTH,1);
 
         allmyvals = classicRawProfileValues_cell{iMonth,iLoc};
         allmyranderrs = classicRawProfileErrRand_cell{iMonth,iLoc};
@@ -345,32 +390,30 @@ for iLoc = 1:NUM_LOCS
             gall(iDataPoint) = currMonthDataType(rowIdxs(iDataPoint));
         end
         
-        classicRawProfileValues(1:nDataPoints,iMonth,iLoc) = yall;
-        classicRawProfileErrSys(1:nDataPoints,iMonth,iLoc) = currMonthErrSys(1:nDataPoints);
-        classicRawProfileErrRand(1:nDataPoints,iMonth,iLoc) = currMonthErrRand(1:nDataPoints);
+        classicRawProfileValues(1:nDataPoints,iMonth,iLoc) = yall.*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
+        classicRawProfileErrSys(1:nDataPoints,iMonth,iLoc) = currMonthErrSys(1:nDataPoints).*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
+        classicRawProfileErrRand(1:nDataPoints,iMonth,iLoc) = currMonthErrRand(1:nDataPoints).*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
         classicRawProfileDepths(1:nDataPoints,iMonth,iLoc) = xall;
         classicRawProfileDataType(1:nDataPoints,iMonth,iLoc) = gall;
 
     end % iMonth 
 end % iLoc
 
-% .........................................................................
-
-% Average data per unique depth and propagate error
+% Average data per unique depth and propagate error.
  
-classicMonthlyProfileAvg    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS); % mean
-classicMonthlyProfileN      = zeros(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS); % number of values
-classicMonthlyProfileErrTot = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS); % total error
-classicMonthlyProfileDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS);  
-nUniqueObsDepths            = NaN(12,NUM_LOCS); 
+classicMonthlyProfileAvg    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs); % mean
+classicMonthlyProfileN      = zeros(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs); % number of values
+classicMonthlyProfileErrTot = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs); % total error
+classicMonthlyProfileDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs);  
+nUniqueObsDepths            = NaN(12,nLocs); 
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     for iMonth = 1:12
 
         % Get values
-        valso = squeeze(classicRawProfileValues(:,iMonth,iLoc)).*MOLAR_MASS_CARBON; % mmol C m-2 d-1 --> mg C m-2 d-1
-        errssyso = squeeze(classicRawProfileErrSys(:,iMonth,iLoc)).*MOLAR_MASS_CARBON;
-        errsrando = squeeze(classicRawProfileErrRand(:,iMonth,iLoc)).*MOLAR_MASS_CARBON;
+        valso = squeeze(classicRawProfileValues(:,iMonth,iLoc));
+        errssyso = squeeze(classicRawProfileErrSys(:,iMonth,iLoc));
+        errsrando = squeeze(classicRawProfileErrRand(:,iMonth,iLoc));
         zo = squeeze(classicRawProfileDepths(:,iMonth,iLoc));
         zo(zo==0) = NaN;
         uniqueObsDepths = unique(zo);
@@ -396,15 +439,13 @@ for iLoc = 1:NUM_LOCS
                 typeAuncertainty = std(fluxesInThisUniqueDepth)./sqrt(classicMonthlyProfileN(iUniqueDepth,iMonth,iLoc)); 
             % (b) if error associated to the samples, propagate error
             else
-                [x_LB,x_UB,f_LB,f_MID,f_UB,minus_percent,plus_percent] =... 
-                    worstcase(@(x) mean(x),fluxesInThisUniqueDepth,randErrsInThisUniqueDepth);
+                [~,~,~,f_MID,f_UB,~,~] = worstcase(@(x) mean(x),fluxesInThisUniqueDepth,randErrsInThisUniqueDepth);
                 typeAuncertainty = f_UB - f_MID;
             end
 
             % Type B uncertainty, or systematic error 
             % Error propagation of the systematic errors
-            [x_LB,x_UB,f_LB,f_MID,f_UB,minus_percent,plus_percent] =... 
-                worstcase(@(x) mean(x),fluxesInThisUniqueDepth,sysErrsInThisUniqueDepth);
+            [~,~,~,f_MID,f_UB,~,~] = worstcase(@(x) mean(x),fluxesInThisUniqueDepth,sysErrsInThisUniqueDepth);
             typeBuncertainty = f_UB - f_MID;
 
             % Net error: sum of type A and type B errors in the quadrature
@@ -418,18 +459,17 @@ end % iLoc
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 5 - BIN DATA ANNUALLY BY DEPTH HORIZON AND PROPAGATE ERROR
+% SECTION 6 - BIN DATA ANNUALLY BY DEPTH HORIZON AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-classicAnnualDhAvg    = NaN(NUM_TARGET_DEPTHS,NUM_LOCS); % weighted mean
-classicAnnualDhErrTot = NaN(NUM_TARGET_DEPTHS,NUM_LOCS);
-classicAnnualDhN      = NaN(NUM_TARGET_DEPTHS,NUM_LOCS);
-classicAnnualDhMin    = NaN(NUM_TARGET_DEPTHS,NUM_LOCS);
-classicAnnualDhMax    = NaN(NUM_TARGET_DEPTHS,NUM_LOCS);
+classicAnnualDhAvg    = NaN(3,nLocs); % weighted mean
+classicAnnualDhErrTot = NaN(3,nLocs);
+classicAnnualDhN      = NaN(3,nLocs);
+classicAnnualDhMin    = NaN(3,nLocs);
+classicAnnualDhMax    = NaN(3,nLocs);
 
-for iLoc = 1:NUM_LOCS 
-
-    for iDh = 1:NUM_TARGET_DEPTHS
+for iLoc = 1:nLocs
+    for iDh = 1:3
         nSamples = squeeze(classicMonthlyDhN(iDh,:,iLoc)); % nz x 12 x nLocs
         
         if (any(nSamples))
@@ -448,7 +488,7 @@ for iLoc = 1:NUM_LOCS
             classicAnnualDhAvg(iDh,iLoc) = calculateWeightedAvg(paramsWeightedAverage);
 
             % Error propagation using worstcase with the function handle and the parameters
-            [x_LB, x_UB, f_LB, f_MID, f_UB, minus_percent, plus_percent] = ...
+            [~,~,~,f_MID,f_UB,~,~] = ...
                 worstcase(@(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
                 paramsWeightedAverage', errTot');
             classicAnnualDhErrTot(iDh,iLoc) = f_UB - f_MID;
@@ -463,17 +503,17 @@ end
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 6 - BIN DATA ANNUALLY BY UNIQUE DEPTH AND PROPAGATE ERROR
+% SECTION 7 - BIN DATA ANNUALLY BY UNIQUE DEPTH AND PROPAGATE ERROR
 % -------------------------------------------------------------------------
 
-classicAnnualProfileAvg    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS); % weighted mean
-classicAnnualProfileErrTot = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS);
-classicAnnualProfileN      = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS);
-classicAnnualProfileMin    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS);
-classicAnnualProfileMax    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS);
-classicAnnualProfileDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,NUM_LOCS);  
+classicAnnualProfileAvg    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs); % weighted mean
+classicAnnualProfileErrTot = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);
+classicAnnualProfileN      = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);
+classicAnnualProfileMin    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);
+classicAnnualProfileMax    = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);
+classicAnnualProfileDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);  
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
 
     % Get values
     vals = squeeze(classicMonthlyProfileAvg(:,:,iLoc));
@@ -503,7 +543,7 @@ for iLoc = 1:NUM_LOCS
         classicAnnualProfileAvg(iUniqueDepth,iLoc) = calculateWeightedAvg(paramsWeightedAverage);
 
         % Error propagation using worstcase with the function handle and the parameters
-        [x_LB, x_UB, f_LB, f_MID, f_UB, minus_percent, plus_percent] = ...
+        [~,~,~,f_MID,f_UB,~,~] = ...
             worstcase(@(paramsWeightedAverage) calculateWeightedAvg(paramsWeightedAverage),...
             paramsWeightedAverage, errsInThisUniqueDepth);
         classicAnnualProfileErrTot(iUniqueDepth,iLoc) = f_UB - f_MID;
@@ -518,14 +558,14 @@ end % iLoc
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 7 - CALCULATE THE NUMBER OF DATA POINTS BASED ON VARIOUS CRITERIA
+% SECTION 8 - CALCULATE THE NUMBER OF DATA POINTS BASED ON VARIOUS CRITERIA
 % -------------------------------------------------------------------------
 
 % Entries for depth horizon analysis
-classicMonthlyDhNbyMethod = zeros(12,NUM_LOCS,NUM_TARGET_DEPTHS,2); % same as classicMonthlyDhN but split by collection method
-for iLoc = 1:NUM_LOCS
+classicMonthlyDhNbyMethod = zeros(12,nLocs,3,2); % same as classicMonthlyDhN but split by collection method
+for iLoc = 1:nLocs
     for iMonth = 1:12
-        for iDh = 1:NUM_TARGET_DEPTHS
+        for iDh = 1:3
             myvals = classicRawDhValues_cell{iDh,iMonth,iLoc};
             mytypes = classicRawDhDataType_cell{iDh,iMonth,iLoc};
             if (~isempty(myvals))
@@ -551,19 +591,19 @@ fracHotalohaDataPointsDhAnalysis = (sum(squeeze(classicMonthlyDhNbyMethod(:,5,:,
 fracHausgartenDataPointsDhAnalysis = (sum(squeeze(classicMonthlyDhNbyMethod(:,6,:,:)),'all','omitnan')/nObsForDhAnalysis)*100;
 
 fprintf('\n%0.1f%% data points at BATS/OFP,', fracBatsDataPointsDhAnalysis)
+fprintf('\n%0.1f%% data points at HOT/ALOHA, and', fracHotalohaDataPointsDhAnalysis)
 fprintf('\n%0.1f%% data points at OSP,', fracOspDataPointsDhAnalysis)
 fprintf('\n%0.1f%% data points at PAP-SO,', fracPapsoDataPointsDhAnalysis)
-fprintf('\n%0.1f%% data points at EqPac,', fracEqpacDataPointsDhAnalysis)
-fprintf('\n%0.1f%% data points at HOT/ALOHA, and', fracHotalohaDataPointsDhAnalysis)
 fprintf('\n%0.1f%% data points at HAUSGARTEN.', fracHausgartenDataPointsDhAnalysis)
+fprintf('\n%0.1f%% data points at EqPac,', fracEqpacDataPointsDhAnalysis)
 
 nRadionuclideDataPoints = sum(squeeze(classicMonthlyDhNbyMethod(:,:,:,2)),'all','omitnan');
 fracRadionuclideDataPoints = (nRadionuclideDataPoints/nObsForDhAnalysis)*100;
 fprintf('\nWe have %0.1f%% radionuclide data points for summaries by depth horizon.', fracRadionuclideDataPoints)
 
 % Compare with length of the raw data set
-nEntriesRawDatasetByLoc = zeros(NUM_LOCS,1);
-for iLoc = 1:NUM_LOCS
+nEntriesRawDatasetByLoc = zeros(nLocs,1);
+for iLoc = 1:nLocs
     currStatData = D.POC_mmol_m2_d(D.tag == STATION_NAMES{iLoc},:);
     nEntriesRawDatasetByLoc(iLoc) = nnz(~isnan(currStatData));
 end
@@ -576,21 +616,22 @@ fracPapsoDataPointsRaw  = (nEntriesRawDatasetByLoc(3)/nEntriesRawDatasetTotal)*1
 fracEqpacDataPointsRaw  = (nEntriesRawDatasetByLoc(1)/nEntriesRawDatasetTotal)*100;
 fracHotalohaDataPointsRaw  = (nEntriesRawDatasetByLoc(5)/nEntriesRawDatasetTotal)*100;
 fracHusgartenDataPointsRaw  = (nEntriesRawDatasetByLoc(6)/nEntriesRawDatasetTotal)*100;
-fprintf('\n%0.1f%% data points at BATS/OFP,', fracBatsDataPointsRaw)
-fprintf('\n%0.1f%% data points at OSP,', fracOspDataPointsRaw)
-fprintf('\n%0.1f%% data points at PAP-SO,', fracPapsoDataPointsRaw)
-fprintf('\n%0.1f%% data points at EqPac,', fracEqpacDataPointsRaw)
-fprintf('\n%0.1f%% data points at HOT/ALOHA, and', fracHotalohaDataPointsRaw)
-fprintf('\n%0.1f%% data points at HAUSGARTEN.', fracHusgartenDataPointsRaw)
+
+fprintf('\n%0.1f%% data points at BATS/OFP', fracBatsDataPointsRaw)
+fprintf('\n%0.1f%% data points at HOT/ALOHA', fracHotalohaDataPointsRaw)
+fprintf('\n%0.1f%% data points at OSP', fracOspDataPointsRaw)
+fprintf('\n%0.1f%% data points at PAP-SO', fracPapsoDataPointsRaw)
+fprintf('\n%0.1f%% data points at HAUSGARTEN', fracHusgartenDataPointsRaw)
+fprintf('\n%0.1f%% data points at EqPac', fracEqpacDataPointsRaw)
 
 nEntriesRawDatasetRadionuclideTotal = length(D.POC_mmol_m2_d(strcmp(D.method,'radionuclide'),:));
 fracRadionuclidesDatasetRaw = (nEntriesRawDatasetRadionuclideTotal/nEntriesRawDatasetTotal)*100;
 fprintf('\nWe have %0.1f%% radionuclide data points in total.\n', fracRadionuclidesDatasetRaw)
 
-% Print number of data points for my Table S1
-tablendp = zeros(3,NUM_LOCS,2);
-for iLoc = 1:NUM_LOCS
-    for iDh = 1:NUM_TARGET_DEPTHS
+% Print number of data points for reference
+tablendp = zeros(3,nLocs,2);
+for iLoc = 1:nLocs
+    for iDh = 1:3
         for iMethod = 1:2
             ndp = sum(squeeze(classicMonthlyDhNbyMethod(:,iLoc,iDh,iMethod)),'omitnan');
             tablendp(iDh,iLoc,iMethod) = ndp;
@@ -602,15 +643,15 @@ checkNumEntries = tablendp(1,6,2); % see in 6th loc, zeu for method 2 (radionucl
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 8 - SAVE THE DATA
+% SECTION 9 - SAVE THE DATA
 % -------------------------------------------------------------------------
 
 % Save monthly fluxes
-save(fullfile('.','data','processed',filenameOutputMonthlyFlux),...
+save(fullfile('.','data','processed',filenameOutputFluxCompilation),...
     'classicRawProfileValues_cell','classicRawProfileErrRand_cell','classicRawProfileErrSys_cell',...
     'classicRawProfileDepths_cell','classicRawProfileDataType_cell','classicRawProfileValues',...
     'classicRawProfileErrRand','classicRawProfileErrSys','classicRawProfileDepths','classicRawProfileDataType',...
-    'classicRawDhValues_cell','classicRawDhDepths_cell','classicRawDhDataType_cell',...
+    'classicRawDhValues_cell','classicRawDhDepths_cell','classicRawDhTag_cell','classicRawDhDataType_cell',...
     'classicMonthlyProfileAvg','classicMonthlyProfileErrTot','classicMonthlyProfileN','classicMonthlyProfileDepths',...
     'classicMonthlyDhAvg','classicMonthlyDhErrTot','classicMonthlyDhN',...
     'classicAnnualDhAvg','classicAnnualDhErrTot','classicAnnualDhN',...

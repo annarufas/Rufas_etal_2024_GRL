@@ -11,7 +11,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 6 Nov 2024                                    %
+%   Version 1.0 - Completed 13 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -29,16 +29,17 @@ addpath(genpath('./resources/internal/'));
 % -------------------------------------------------------------------------
 
 % Do we need to run the fit calculations?
-areFitsComputed = 1;
+areFitsComputed = 0;
 
 % Filename declarations 
-filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
-filenameInputFitMetricsArrayChoices = 'fitmetrics_all_combinations.mat';
-filenameOutputCsvTable = 'dataset_s1_figureS4.csv';
+filenameInputTimeseriesInformation   = 'timeseries_station_information.mat';
+filenameOutputFitMetricsArrayChoices = 'fitmetrics_all_combinations.mat';
+filenameOutputCsvTable               = 'dataset_s1_figureS3.csv';
 
 % Load information on stations
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'NUM_LOCS','STATION_NAMES','LOC_LATS','LOC_LONS')
+    'STATION_NAMES')
+nLocs = length(STATION_NAMES);
 
 % Define possible values for each choice
 isMeansOfMeansOptions   = [0, 1];
@@ -57,40 +58,7 @@ iHa = 6; % HAUSGARTEN
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 2 - EUPHOTIC LAYER DEPTH (NEEDED TO CALCULATE ZREF)
-% -------------------------------------------------------------------------
-
-% Load the global-ocean euphotic layer depth product calculated from CMEMS
-% light attenuation coefficient (kd) product and extract data at our locations
-    
-if ~areFitsComputed
-    
-    load(fullfile('.','data','interim','zeu_calculated_onepercentpar0.mat'),'zeu','zeu_lat','zeu_lon')
-
-    % Query points for interpolation
-    qLats = LOC_LATS;
-    qLons = LOC_LONS;
-
-    % Original data grid
-    [X,Y,T] = ndgrid(zeu_lat,zeu_lon,(1:12)');
-
-    % Interpolant 
-    F = griddedInterpolant(X, Y, T, zeu, 'linear'); 
-
-    % Extract data for our locations defined by qLats and qLons
-    qZeuMonthly = NaN(length(qLats),12);
-    for iLoc = 1:length(qLats)
-        [qX,qY,qT] = ndgrid(qLats(iLoc),qLons(iLoc),(1:12)');
-        qZeuMonthly(iLoc,:) = F(qX,qY,qT);
-    end
-    qZeuAnnual = mean(qZeuMonthly,2,'omitnan');
-
-end
-
-% =========================================================================
-%%
-% -------------------------------------------------------------------------
-% SECTION 3 - CALCULATE DIFFERENT FITS
+% SECTION 2 - CALCULATE DIFFERENT FITS
 % -------------------------------------------------------------------------
 
 % Running this section might take up to 12 h
@@ -98,9 +66,9 @@ end
 if ~areFitsComputed
     
     % Initialise output arrays
-    martinbMonthly = NaN(NUM_LOCS,12,numel(isMeansOfMeansOptions),numel(isLogTransformedOptions),numel(isFluxNormalisedOptions),numel(choiceZrefOptions));
+    martinbMonthly = NaN(nLocs,12,numel(isMeansOfMeansOptions),numel(isLogTransformedOptions),numel(isFluxNormalisedOptions),numel(choiceZrefOptions));
     zstarMonthly   = NaN(size(martinbMonthly)); 
-    martinbAnnual  = NaN(NUM_LOCS,numel(isMeansOfMeansOptions),numel(isLogTransformedOptions),numel(isFluxNormalisedOptions),numel(choiceZrefOptions));
+    martinbAnnual  = NaN(nLocs,numel(isMeansOfMeansOptions),numel(isLogTransformedOptions),numel(isFluxNormalisedOptions),numel(choiceZrefOptions));
     zstarAnnual    = NaN(size(martinbAnnual));
 
     % Loop through each combination of options
@@ -120,20 +88,15 @@ if ~areFitsComputed
                         isMeansOfMeans, isLogTransformed, isFluxNormalised, choiceZref);
 
                     % Call the function with the current combination
-                    calculateBcpMetricsFromTrapAndRadionuclide(isMeansOfMeans, ...
+                    calculateBcpMetricsFromTrapAndRadCompilation(isMeansOfMeans, ...
                         isLogTransformed,isFluxNormalised,choiceZref);
 
                     % Load the data
                     filenameFitMetricsOutput = constructFilenameFitMetrics(...
                         isMeansOfMeans,isLogTransformed,isFluxNormalised,choiceZref);
-                    data = load(filenameFitMetricsOutput,...
-                        'martinbMonthly','zstarMonthly','martinbAnnual','zstarAnnual');
+                    data = load(filenameFitMetricsOutput,'martinbAnnual','zstarAnnual');
 
                     % Offload into output arrays
-                    if isMeansOfMeans  
-                        martinbMonthly(:,:,i,j,k,choiceZref) = data.martinbMonthly(:,:,1);
-                        zstarMonthly(:,:,i,j,k,choiceZref) = data.zstarMonthly(:,:,1);
-                    end
                     martinbAnnual(:,i,j,k,choiceZref) = data.martinbAnnual(:,1);
                     zstarAnnual(:,i,j,k,choiceZref) = data.zstarAnnual(:,1);
 
@@ -142,24 +105,24 @@ if ~areFitsComputed
         end % isLogTransformed
     end % isMeansOfMeans
 
-    save(fullfile('.','data','processed',filenameInputFitMetricsArrayChoices),...
-        'martinbMonthly','zstarMonthly','martinbAnnual','zstarAnnual','qZeuAnnual')
+    save(fullfile('.','data','processed',filenameOutputFitMetricsArrayChoices),...
+        'martinbAnnual','zstarAnnual')
 
 end
 
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 4 - WRITE OUT THE FITS DATA 5D ARRAY INTO A .CSV FILE (DATASET S1)
+% SECTION 3 - WRITE OUT THE FITS DATA 5D ARRAY INTO A .CSV FILE (DATASET S1)
 % -------------------------------------------------------------------------
 
-load(fullfile('.','data','processed',filenameInputFitMetricsArrayChoices),...
+load(fullfile('.','data','processed',filenameOutputFitMetricsArrayChoices),...
     'martinbAnnual','zstarAnnual')
 
 % I need to flatten or reshape the array into a 2D matrix 
 
 % Initialise the output array
-outputArray = NaN(NUM_LOCS,(2*2*2*2*3));
+outputArray = NaN(nLocs,(2*2*2*2*3));
 
 %                                                   Annual Martin's b fit                                                   Annual zstar fit
 %           ------------------------------------------------------------------------------------------------------- ----------------------------------
@@ -253,7 +216,7 @@ writetable(outputTable,fullfile('.','data','processed',filenameOutputCsvTable),.
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 5 - PRINCIPAL COMPONENT ANALYSIS
+% SECTION 4 - PRINCIPAL COMPONENT ANALYSIS
 % -------------------------------------------------------------------------
 
 % Select Martin's b only

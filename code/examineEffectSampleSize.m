@@ -5,11 +5,9 @@
 % b and z* from POC flux data from our sediment trap/radionuclide         %
 % compialtion. The script has 4 sections:                                 %
 %   Section 1 - Presets.                                                  %
-%   Section 2 - Load euphotic layer depth (needed to calculate zref).     %
-%   Section 3 - Rearrange POC flux data for calculations.                 %
-%   Section 4 - Calculate the coefficients b and z* and their variation.  %
-%   Section 5 - Save the calculated data.                                 %
-%   Section 6 - Calculate relative error.                                 %
+%   Section 2 - Rearrange POC flux data for calculations.                 %
+%   Section 3 - Calculate the coefficients b and z* and their variation.  %
+%   Section 4 - Calculate relative error.                                 %
 %                                                                         %
 %   This script uses these external functions:                            %
 %       binPocFluxDataAtRegularDepthIntervals.m - custom function         %
@@ -20,7 +18,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 7 Nov 2024                                    %
+%   Version 1.0 - Completed 13 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -45,16 +43,17 @@ isFluxNormalised = 0; % 0=do not normalise POC flux values to value at zref, 1=d
 choiceZref = 2;       % reference depth, 1=closest value to 100, 2=zeu, 3=inflexion point
 
 % Path and filename declarations
-filenameInputMonthlyPocFlux = 'pocflux_compilation_monthly.mat';
+filenameInputPocFluxCompilation    = 'pocflux_compilation.mat';
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
-filenameOutputSampleSizeStats = 'sampleSizeStats.mat';
+filenameOutputSampleSizeStats      = 'sampleSizeStats.mat';
 
 % Load station information
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'NUM_LOCS','LOC_LATS','LOC_LONS')
+    'qZeuMonthly','MAX_NUM_DEPTHS_PER_PROFILE','MAX_ZEU')
+nLocs = size(qZeuMonthly,2);
 
 % Load the trap and radionuclide compilation (mmol C m-2 d-1)
-load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),...
+load(fullfile('.','data','processed',filenameInputPocFluxCompilation),...
     'classicMonthlyDhAvg','classicMonthlyDhErrTot','classicMonthlyDhN',...
     'classicMonthlyProfileAvg','classicMonthlyProfileErrTot','classicMonthlyProfileN',...    
     'classicMonthlyProfileDepths')
@@ -63,49 +62,20 @@ load(fullfile('.','data','processed',filenameInputMonthlyPocFlux),...
 NUM_SIMULATED_PROFILES = 50; 
 NUM_SUBSAMPLING = 100;
 
-% Define other parameters
-MAX_NUM_DEPTHS_PER_PROFILE = 100;
-MOLAR_MASS_CARBON = 12.011; % g mol-1
+% Set the seed for the random number generator
+rng(0); % this will create a repeatble sequence of random numbers every time randn or randi are called
 
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 2 - LOAD EUPHOTIC LAYER DEPTH (NEEDED TO CALCULATE ZREF)
-% -------------------------------------------------------------------------
-
-% Load the global-ocean euphotic layer depth product calculated from 
-% CMEMS kd and extract data at our locations
-load(fullfile('.','data','interim','zeu_calculated_onepercentpar0.mat'),'zeu','zeu_lat','zeu_lon')
-
-% Query points for interpolation
-qLats = LOC_LATS;
-qLons = LOC_LONS;
-
-% Original data grid
-[X,Y,T] = ndgrid(zeu_lat,zeu_lon,(1:12)');
-
-% Interpolant 
-F = griddedInterpolant(X, Y, T, zeu, 'linear'); 
-
-% Extract data for our locations defined by qLats and qLons
-qZeuMonthly = NaN(length(qLats),12);
-for iLoc = 1:length(qLats)
-    [qX,qY,qT] = ndgrid(qLats(iLoc),qLons(iLoc),(1:12)');
-    qZeuMonthly(iLoc,:) = F(qX,qY,qT);
-end
-qZeuAnnual = mean(qZeuMonthly,2,'omitnan');
-
-% =========================================================================
-%%
-% -------------------------------------------------------------------------
-% SECTION 3 - REARRANGE POC FLUX DATA FOR CALCULATIONS
+% SECTION 2 - REARRANGE POC FLUX DATA FOR CALCULATIONS
 % -------------------------------------------------------------------------
 
 % Bin data at 5 m depth regular intervals to smooth curve fitting
-fluxBinned   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS,2); % mmol C m-2 d-1, 4th dim: 1=avg, 2=err
-depthsBinned = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS);
+fluxBinned   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs,2); % mg C m-2 d-1, 4th dim: 1=avg, 2=err
+depthsBinned = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs);
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     for iMonth = 1:12
         [depthsBinned(:,iMonth,iLoc),fluxBinned(:,iMonth,iLoc,:)] =... 
             binPocFluxDataAtRegularDepthIntervals(...
@@ -119,16 +89,16 @@ end
 
 % Extract data from zref and below, to be passed to the function 
 % calculating b and z*
-arrayFlux   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS,2); % mg C m-2 d-1, 4th dim: 1=avg, 2=err 
-arrayDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,NUM_LOCS);
+arrayFlux   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs,2); % mg C m-2 d-1, 4th dim: 1=avg, 2=err 
+arrayDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs);
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     for iMonth = 1:12
 
         [selectedDepths,selectedFluxes,selectedErrors] = ...
-            extractDataBelowZref(...
-                depthsBinned(:,iMonth,iLoc),fluxBinned(:,iMonth,iLoc,1),...
-                fluxBinned(:,iMonth,iLoc,2),choiceZref,qZeuMonthly(iLoc,iMonth));
+            extractDataBelowZref(depthsBinned(:,iMonth,iLoc),...
+                fluxBinned(:,iMonth,iLoc,1),fluxBinned(:,iMonth,iLoc,2),...
+                choiceZref,qZeuMonthly(iMonth,iLoc),MAX_ZEU);
 
         nEntriesSelected = numel(selectedDepths);
         if (~isempty(nEntriesSelected) && nEntriesSelected > 0) 
@@ -136,8 +106,8 @@ for iLoc = 1:NUM_LOCS
                 selectedFluxes = selectedFluxes./selectedFluxes(1);
                 selectedErrors = selectedErrors./selectedErrors(1);
             end
-            arrayFlux(1:nEntriesSelected,iMonth,iLoc,1) = MOLAR_MASS_CARBON.*selectedFluxes; % mmol C m-2 d-1 --> mg C m-2 d-1
-            arrayFlux(1:nEntriesSelected,iMonth,iLoc,2) = MOLAR_MASS_CARBON.*selectedErrors;
+            arrayFlux(1:nEntriesSelected,iMonth,iLoc,1) = selectedFluxes;
+            arrayFlux(1:nEntriesSelected,iMonth,iLoc,2) = selectedErrors;
             arrayDepths(1:nEntriesSelected,iMonth,iLoc) = selectedDepths;
         end
 
@@ -147,16 +117,16 @@ end
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 4 - CALCULATE THE COEFFICIENTS B AND Z* AND THEIR VARIATION 
+% SECTION 3 - CALCULATE THE COEFFICIENTS B AND Z* AND THEIR VARIATION 
 % -------------------------------------------------------------------------
 
 % Initialise output arrays
-martinbSimulatedProfile = NaN(NUM_LOCS,NUM_SUBSAMPLING,NUM_SIMULATED_PROFILES,2); % 1=mean, 2=GOF
-zstarSimulatedProfile   = NaN(NUM_LOCS,NUM_SUBSAMPLING,NUM_SIMULATED_PROFILES,2); % 1=mean, 2=GOF
-martinbOverall          = NaN(NUM_LOCS,2); % 1=mean, 2=std
-zstarOverall            = NaN(NUM_LOCS,2); % 1=mean, 2=std
+martinbSimulatedProfile = NaN(nLocs,NUM_SUBSAMPLING,NUM_SIMULATED_PROFILES,2); % 1=mean, 2=GOF
+zstarSimulatedProfile   = NaN(nLocs,NUM_SUBSAMPLING,NUM_SIMULATED_PROFILES,2); % 1=mean, 2=GOF
+martinbOverall          = NaN(nLocs,2); % 1=mean, 2=std
+zstarOverall            = NaN(nLocs,2); % 1=mean, 2=std
 
-for iLoc = 1:NUM_LOCS
+for iLoc = 1:nLocs
     fprintf('\nLocation %d',iLoc)
     
     for iSubsample = 1:NUM_SUBSAMPLING
@@ -170,8 +140,8 @@ for iLoc = 1:NUM_LOCS
             profileFlux_error = arrayFlux(:,randomSamples(iSimulatedProfile),iLoc,2); % mg C m-2 d-1
             profileDepths     = arrayDepths(:,randomSamples(iSimulatedProfile),iLoc); % m
             
-            % Only proceed if there are flux data and the first depth is <= 200 m
-            if (sum(~isnan(profileFlux_mean)) > 0 && profileDepths(1) <= 200)
+            % Only proceed if there are flux data
+            if (sum(~isnan(profileFlux_mean)))
     
                 % Randomly sample POC flux values from a normal distribution
                 [f,z] = samplePocFluxWithLH(profileFlux_mean,profileFlux_error,profileDepths,1);
@@ -196,19 +166,13 @@ for iLoc = 1:NUM_LOCS
     
 end % iLoc
 
-% =========================================================================
-%%
-% -------------------------------------------------------------------------
-% SECTION 5 - SAVE THE CALCULATED DATA
-% -------------------------------------------------------------------------
-
 save(fullfile('.','data','processed',filenameOutputSampleSizeStats),...
     'martinbOverall','zstarOverall')
 
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
-% SECTION 6 - CALCULATE RELATIVE ERROR
+% SECTION 4 - CALCULATE RELATIVE ERROR
 % -------------------------------------------------------------------------
 
 martinbRe = 100.*(martinbOverall(:,2)./martinbOverall(:,1)); 

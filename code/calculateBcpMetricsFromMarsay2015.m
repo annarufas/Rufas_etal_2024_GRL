@@ -69,14 +69,14 @@ load(fullfile('.','data','interim','temp_annual_woa23.mat'),...
 % the median and propagate errors
 iDepth500 = find(woa_annual_depth_temp == 500);
 
-tempAnnualUpp500_vals = NaN(360,180);
-tempAnnualUpp500_err = NaN(360,180);
+tempAnnualUpp500_vals = NaN(size(temp_annual,1),size(temp_annual,2));
+tempAnnualUpp500_err = NaN(size(tempAnnualUpp500_vals));
 
-for iLon = 1:length(woa_annual_lon)
-    for iLat = 1:length(woa_annual_lat)
+for iLat = 1:length(woa_annual_lat)
+    for iLon = 1:length(woa_annual_lon)
 
-        ta = squeeze(temp_annual(iLon,iLat,(1:iDepth500)));
-        td = squeeze(temp_annual_std(iLon,iLat,(1:iDepth500)));
+        ta = squeeze(temp_annual(iLat,iLon,(1:iDepth500)));
+        td = squeeze(temp_annual_std(iLat,iLon,(1:iDepth500)));
         idxNonNan = ~isnan(ta) & ~isnan(td);
         ta = ta(idxNonNan);
         td = td(idxNonNan);
@@ -84,11 +84,11 @@ for iLon = 1:length(woa_annual_lon)
         % If there are valid data points, calculate median and propagate error
         if (any(ta))
             % Calculate the median of the temperature values
-            tempAnnualUpp500_vals(iLon,iLat) = median(ta);
+            tempAnnualUpp500_vals(iLat,iLon) = median(ta);
 
             % Error propagation using worstcase with the function handle and the parameters
             [~,~,~,f_MID,f_UB,~,~] = worstcase(@(ta) median(ta),ta,td);
-            tempAnnualUpp500_err(iLon,iLat) = f_UB - f_MID;
+            tempAnnualUpp500_err(iLat,iLon) = f_UB - f_MID;
         end
     end
 end
@@ -148,13 +148,13 @@ else % local data
     estimZstar   = NaN(size(trueMartinb));
     
     % Prepare interpolant to extract local temperature for our locations of interest
-    [X, Y] = ndgrid(woa_annual_lon, woa_annual_lat); 
+    [X, Y] = ndgrid(woa_annual_lat, woa_annual_lon); 
     Fv = griddedInterpolant(X, Y, tempAnnualUpp500_vals, 'linear');
     Fe = griddedInterpolant(X, Y, tempAnnualUpp500_err, 'linear');
 
     for iLoc = 1:nLocs
 
-        [qX, qY] = ndgrid(qLons(iLoc),qLats(iLoc)); % query points for interpolation
+        [qX, qY] = ndgrid(qLats(iLoc),qLons(iLoc)); % query points for interpolation
         qTempAnnualMean = Fv(qX, qY);
         qTempAnnualStd = Fe(qX, qY);
         
