@@ -39,8 +39,8 @@ To use the content of this repository, ensure you have the following.
 
 ## Obtaining Raw Data
 
-- **Particle concentration measurements** from the Underwater Vision Profiler 5 (UVP5) downloaded from the EcoPart repository hosted by [IFREMER](https://ecopart.obs-vlfr.fr). This dataset is stored in the subfolder `./data/raw/UVP5/`.
-- **Particulate organic carbon (POC) flux measurements** from sediment traps and radionuclides, a compilation that we made for this study. The file, `dataset_s0_trap_and_radionuclide_compilation.xlsx`, is not available within this repository as it contains data owned by other authors that are not in a preservation repository. References for constructing this dataset are provided in the Supporting Information of our paper (Tables S1-S6), and the dataset can be provided upon request.
+- **Particulate organic carbon (POC) flux measurements** from sediment traps and radionuclides, a compilation that we made for this study. The file, `dataset_s0_trap_and_radionuclide_compilation.xlsx`, is not available within this repository as it contains data owned by other authors that are not in a preservation repository. References for constructing this dataset are provided in the Supporting Information of our paper (Tables S1-S6), and a processed version of the dataset is available in the folder `./data/processed/pocflux_compilation.mat`.
+- **Particle concentration measurements** from the Underwater Vision Profiler 5 (UVP5) downloaded from the EcoPart repository hosted by [IFREMER](https://ecopart.obs-vlfr.fr). This data are stored in the subfolder `./data/raw/UVP5/` and also in a processed format in `./data/processed/UVP5/pocflux_bisson_45sc.mat`.
 
 ## Obtaining Interim Data
 
@@ -60,30 +60,30 @@ The following scripts have been run in this order to analyse the data and reprod
 | 1  | plotGlobalMapWithTimeseriesStations.m        | Creates **Figure 1**                                              |
 | 2  | processPocFluxFromTrapAndRadCompilation.m    | Processes **Dataset S0**                                          |
 | 3  | plotPocFluxFromTrapAndRadCompilation.m       | Creates **Figure 2**, **S1** and **S2**                           |
-| 4  | processPocFluxFromUvp.m                      | Processes the **UVP5 dataset** downloaded from Ecopart            |
-| 5  | plotPocFluxFromUvp.m                         | Creates **Figure S3**                                             | 
-| 6  | findAndPlotUvpVsCompilationPocFluxMatchups.m | Creates **Figure 3**                                              |
-| 7  | processPocFluxFits.m                         | Calculates *b* for various scenarios using **Dataset S0** and generates **Dataset S1**     |
-| 8  | plotPocFluxFits.m                            | Creates **Figure S4**                                                 |   
+| 4  | processPocFluxFits.m                         | Calculates *b* for various scenarios using **Dataset S0** and generates **Dataset S1**     |
+| 5  | plotPocFluxFits.m                            | Creates **Figure S3**                                                 |   
+| 6  | processPocFluxFromUvp.m                      | Processes the **UVP5 dataset** downloaded from Ecopart            |
+| 7  | plotPocFluxFromUvp.m                         | Creates **Figure S5**                                             | 
+| 8  | findAndPlotUvpVsCompilationPocFluxMatchups.m | Creates **Figure 3**                                              |
 | 9  | processBcpMetrics.m                          | Calculates *b*, *z** and T<sub>eff</sub> using the best method determined after script 7 and generates **Dataset S2** |
 | 10 | plotBcpMetrics.m                             | Creates **Figure 4**                                                  |
 | 11 | examineEffectSampleSize.m                    | Analyses Dataset S0 to examine effect of sample size in the calculations of the relative error of *b* and *z** |
 
 The following are helper functions used by the scripts above:
 
-| Num| Script name                                  | Script action                                                     |
-|----|----------------------------------------------|--------------------------------------------------------------------
-| 12 | calculateBcpMetricsFromTrapAndRadionuclide.m | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> from Dataset S0; called by scripts 7 and 9 |
-| 13 | calculateBcpMetricsFromUvp.m                 | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> from the UVP5 dataset; called by script 9 |
-| 14 | calculateBcpMetricsFromHenson2012.m          | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> using the algorithm of Henson et al. ([2012](https://doi.org/10.1029/2011GB004099)); called by script 9 |
-| 15 | calculateBcpMetricsFromMarsay2015.m          | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> using the algorithm of Marsay et al. ([2015](https://doi.org/10.1073/pnas.1415311112)); called by script 9 |
-| 16 | propagateErrorWithMCforMartinbAndZstar.m     | Monte Carlo error propagation algorithm for *b* and *z** fits; called by scripts 12 and 13  |
-| 17 | propagateErrorWithMCforTeff.m                | Monte Carlo error propagation algorithm for T<sub>eff</sub>; called by scripts 12 and 13 |
-| 18 | solveMartinbAndZstar.m                       | Algorithm to solve *b* and *z**; called by scripts 11 and 16        |
-| 19 | samplePocFluxWithLH.m                        | Latin Hypercube sampling algorithm for POC flux profiles; called by scripts 11 and 16 |
-| 20 | binPocFluxDataAtRegularDepthIntervals.m      | Low-level function, bins POC flux data by depth intervals; called by script 12          |
-| 21 | extractDataBelowZref.m                       | Low-level function, extracts POC flux data below the reference depth; called by scripts num. 8, 12 and 13 |
-| 22 | constructFilenameFitMetrics.m                | Low-level function, constructs file names for *b* fits for different scenarios; called by scripts 8, 9 and 16 |
+| Num| Script name                                    | Script action                                                     |
+|----|------------------------------------------------|--------------------------------------------------------------------
+| 12 | calculateBcpMetricsFromTrapAndRadCompilation.m | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> from Dataset S0; called by scripts 4 and 9 |
+| 13 | calculateBcpMetricsFromUvp.m                   | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> from the UVP5 dataset; called by script 9 |
+| 14 | calculateBcpMetricsFromHenson2012.m            | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> using the algorithm of Henson et al. ([2012](https://doi.org/10.1029/2011GB004099)); called by script 9 |
+| 15 | calculateBcpMetricsFromMarsay2015.m            | Steps to calculate and propagate error for *b*, *z** and T<sub>eff</sub> using the algorithm of Marsay et al. ([2015](https://doi.org/10.1073/pnas.1415311112)); called by script 9 |
+| 16 | propagateErrorWithMCforMartinbAndZstar.m       | Monte Carlo error propagation algorithm for *b* and *z** fits; called by scripts 12 and 13  |
+| 17 | propagateErrorWithMCforTeff.m                  | Monte Carlo error propagation algorithm for T<sub>eff</sub>; called by scripts 12 and 13 |
+| 18 | solveMartinbAndZstar.m                         | Algorithm to solve *b* and *z**; called by scripts 11 and 16        |
+| 19 | samplePocFluxWithLH.m                          | Latin Hypercube sampling algorithm for POC flux profiles; called by scripts 11 and 16 |
+| 20 | binPocFluxDataAtRegularDepthIntervals.m        | Low-level function, bins POC flux data by depth intervals; called by scripts 11 and 12          |
+| 21 | extractDataBelowZref.m                         | Low-level function, extracts POC flux data below the reference depth; called by scripts 5, 11, 12 and 13 |
+| 22 | constructFilenameFitMetrics.m                  | Low-level function, constructs file names for *b* fits for different scenarios; called by scripts 5, 6 and 16 |
 
 ## Reproducibility
 
