@@ -219,16 +219,16 @@ for iSubplot = 1:nSubplots
             ylim([0 2])
             ytickformat('%.1f')
             yticks([0:0.5:2])
-            yticklabels({'0.0','0.5','1.0','1.5','2.0'});
+            yticklabels({'0','0.5','1.0','1.5','2.0'});
         case iZstar 
             ylim([10 1250]) 
             yticks([0:250:1250])
             yticklabels({'0','250','500','750','1000','1250'});
         case iTeff100to1000 
-            ylim([0 0.75]) 
+            ylim([0 0.50]) 
             ytickformat('%.1f')
-            yticks([0:0.15:0.75])
-            yticklabels({'0.0','0.15','0.30','0.45','0.60','0.75'});
+            yticks([0:0.15:0.60])
+            yticklabels({'0','0.15','0.30','0.45','0.60'});
     end
      
     if (iSubplot == 1)
