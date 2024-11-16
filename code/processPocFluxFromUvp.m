@@ -238,14 +238,14 @@ for iLoc = 1:nLocs
     for iMonth = 1:12
         nCasts = castMonthlyDistrib(iMonth,iLoc);
         
-        if (nCasts > 0)
+        if nCasts > 0
             for iDepth = 1:nEcotaxaDepths
 
                 % Number of casts that have reached that depth (might not
                 % match nCasts)
                 nCastsInDepth = sum(~isnan(uvpFluxByCastAvg(:,iDepth,iMonth,iLoc)));
                 
-                if (nCastsInDepth > 0)
+                if nCastsInDepth > 0
                     % Store the number of casts (or samples) at that depth
                     uvpMonthlyFluxProfileN(iDepth,iMonth,iLoc) = nCastsInDepth;
                 
@@ -438,7 +438,7 @@ function simulatedNbl = generateRandomSamplesOfParticleNumber(observedNbl,...
 simulatedN = NaN(nIterations,NUM_SIZE_CLASSES); 
 simulatedNbl = NaN(nIterations,NUM_SIZE_CLASSES); 
 for iSc = 1:NUM_SIZE_CLASSES
-    if (observedNbl(iSc) > 0)
+    if observedNbl(iSc) > 0
         simulatedN(:,iSc) = nbinrnd(observedNbl(iSc)+1/2,1/(observedVol+1),1,nIterations)'; % # part
         simulatedNbl(:,iSc) = simulatedN(:,iSc)./observedVol; % # part L-1
     end
@@ -543,7 +543,7 @@ for iLoc = 1:nLocs
              'FileType','text','Delimiter','tab','TreatAsEmpty',{'N/A','n/a'}); % file table
 
          % On the first iteration, identify particle size classes
-         if (iSite == 1)
+         if iSite == 1
             idxsSizeClasses = strncmp(T.Properties.VariableNames,'LPM_',length('LPM_')); % 'LPM' stands for particle size class
             sizeClassLabels = T.Properties.VariableNames(idxsSizeClasses)'; 
          end
@@ -628,7 +628,7 @@ for iLoc = 1:nLocs
 
     for iMonth = 1:12
         monthFilter = month(ET.date) == iMonth;
-        if (sum(monthFilter) > 0)
+        if sum(monthFilter) > 0
             % Get unique combinations of latitude, longitude and time
             [uniqueCombinations, ~, ~] = unique(ET{monthFilter,... 
                 {'Latitude','Longitude','dateString'}}, 'rows');
@@ -679,12 +679,11 @@ for iLoc = 1:nLocs
     for iMonth = 1:12
         monthFilter = ET.month == iMonth;
 
-        if (sum(monthFilter) > 0)
+        if sum(monthFilter) > 0
             for iDepth = 1:nTargetDepths
                 depthFilter = ET.Depth_m_ == targetDepths(iDepth) & monthFilter;
 
-                if (sum(depthFilter) > 0)
-                    
+                if sum(depthFilter) > 0
                     nInstances = numel(ET.modelledPocFlux(depthFilter)); % = nCastsInDepth
 
                     % Store the filtered data in the output arrays
@@ -692,7 +691,6 @@ for iLoc = 1:nLocs
                     uvpFluxByCastErr((1:nInstances),iDepth,iMonth,iLoc) = ET.fluxErr(depthFilter);
 
                 end
-                
             end % iDepth
         end
     end % iMonth

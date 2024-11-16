@@ -833,7 +833,7 @@ horzConcatenatedArray = [quadruplicateRefNames,num2cell(outputArray)];
 
 % ... and now vertically with the headers
 headerRowFirst = [{''},repmat({'Martin_b'},1,(nLocs*3)),...
-    repmat({'z_star'},1,(nLocs*3)),repmat({'Teff_100_to_1000m'},1,(nLocs*3))];
+    repmat({'z_star'},1,(nLocs*3)),repmat({'Teff_zeu_to_zmeso'},1,(nLocs*3))];
 
 headerRowSecond = [{''},repmat([repmat({'HOT/ALOHA'},1,3),repmat({'BATS/OFP'},1,3),repmat({'EqPac'},1,3),...
     repmat({'PAP-SO'},1,3),repmat({'OSP'},1,3),repmat({'HAUSGARTEN'},1,3)],1,3)];
@@ -869,66 +869,69 @@ writetable(outputTable,fullfile('.','data','processed',filenameOutputCsvTable),.
 
 % .........................................................................
 
-load(fullfile('.','data','processed',filenameOutputMetricsData),'metricsData',...
-    'nPublications','nMetrics')
+load(fullfile('.','data','processed',filenameOutputMetricsData),...
+    'metricsData','nPublications','nMetrics')
+
+% Indexes to metrics
+metrics = [iMartinb, iZstar, iTeff];  % List of metrics to loop over
 
 %% ANOVA test to see the effect of geographical location on the different metrics
 
 fprintf('\nANOVA test to see the effect of geographical location on the different BCP metrics\n')
 
 % Put all samples from each reference together
-localMetricSamples = NaN(3,nLocs,nPublications*4); % 4 for the number of repetitions
-for iMetric = [iMartinb,iZstar,iTeff] % response variable
+localMetricSamples = NaN(length(metrics),nLocs,nPublications*4); % 4 for the number of repetitions
+for iMetricIdx = 1:length(metrics)
+    iMetric = metrics(iMetricIdx); % response variable
     for iLoc = [iHo,iB,iE,iP,iO,iHa] % treatment (independent variable)
         samples = squeeze(metricsData(iLoc,iMetric,:,1,:)); % 1 for the mean value
-        localMetricSamples(iMetric,iLoc,:) = reshape(samples,1,[]);
+        localMetricSamples(iMetricIdx,iLoc,:) = reshape(samples,1,[]);
     end
 end
 
-pvalueTableShapiroTest = zeros(3,nLocs); % 3 metrics x nLocs
-pValueBartlettTest = zeros(3,1);
-pValue = zeros(3,1);
+pvalueTableShapiroTest = zeros(length(metrics),nLocs); % 3 metrics x nLocs
+pValueBartlettTest = zeros(length(metrics),1);
+pValue = zeros(size(pValueBartlettTest));
 
-i = 0;
-for iMetric = [iMartinb,iZstar,iTeff] % response variable
-    
-    fprintf('This is metric %0.f\n',iMetric)
-    i = i + 1;
-    
+for iMetricIdx = 1:length(metrics) % response variable 
+    fprintf('This is metric %0.f\n',iMetricIdx)
+
     % Factor "location" with 6 levels (k=6)
     % N=10 replicates/level (nReferences)
-    loc1 = squeeze(localMetricSamples(iMetric,1,:)); % HOT/ALOHA
-    loc2 = squeeze(localMetricSamples(iMetric,2,:)); % BATS/OFP
-    loc3 = squeeze(localMetricSamples(iMetric,3,:)); % EqPac 
-    loc4 = squeeze(localMetricSamples(iMetric,4,:)); % PAP-SO
-    loc5 = squeeze(localMetricSamples(iMetric,5,:)); % OSP
-    loc6 = squeeze(localMetricSamples(iMetric,6,:)); % HAUSGARTEN
+    loc1 = squeeze(localMetricSamples(iMetricIdx,1,:)); % HOT/ALOHA
+    loc2 = squeeze(localMetricSamples(iMetricIdx,2,:)); % BATS/OFP
+    loc3 = squeeze(localMetricSamples(iMetricIdx,3,:)); % EqPac 
+    loc4 = squeeze(localMetricSamples(iMetricIdx,4,:)); % PAP-SO
+    loc5 = squeeze(localMetricSamples(iMetricIdx,5,:)); % OSP
+    loc6 = squeeze(localMetricSamples(iMetricIdx,6,:)); % HAUSGARTEN
 
     data = [loc1, loc2, loc3, loc4, loc5, loc6]; % each column is a group (level, treatment, location)
 
     % Testing if data are normally distributed -Shapiro-Wilk test
     for iGroup = 1:nLocs
-        [H, pvalueTableShapiroTest(i,iGroup), W] = swtest(data(:,iGroup)); %adtest(data(:,iCol));
+        if sum(~isnan(data(:,iGroup))) > 2
+            [H, pvalueTableShapiroTest(iMetricIdx,iGroup), W] = swtest(data(:,iGroup)); %adtest(data(:,iCol));
+        end
     end
 
     % Testing if variances are homogeneous -Bartlett test
-    pValueBartlettTest(i) = vartestn(data,'TestType','Bartlett','Display','off');
+    pValueBartlettTest(iMetricIdx) = vartestn(data,'TestType','Bartlett','Display','off');
     
     % Decision tree
-    if all(pvalueTableShapiroTest(i,:) > 0.05, 'all') && pValueBartlettTest(i) > 0.05
+    if all(pvalueTableShapiroTest(iMetricIdx,:) > 0.05, 'all') && pValueBartlettTest(iMetricIdx) > 0.05
         % Use ANOVA
         disp("Use ANOVA")
-        [pValue(i),tbl,stats] = anova1(data);
+        [pValue(iMetricIdx),tbl,stats] = anova1(data);
     else
         % Use Kruskal-Wallis
         disp("Use Kruskal-Wallis")
-        [pValue(i),tbl,stats] = kruskalwallis(data);
+        [pValue(iMetricIdx),tbl,stats] = kruskalwallis(data);
     end
     
     % If the test rejects the null hypothesis that all group means are 
     % equal, we can use the multiple comparisons to determine which group 
     % means are different from others. For that, we will use multcompare.
-    if (pValue(i) < 0.05) % rejects H0
+    if (pValue(iMetricIdx) < 0.05) % rejects H0
         disp('We reject H0 that all group means are equal')
         [c,m,h,nms] = multcompare(stats); % , 'Display', 'off'
     else
@@ -944,64 +947,64 @@ end
 fprintf('\nANOVA test to see the effect of publication on the different BCP metrics\n')
 
 % Put all samples from each reference together
-refMetricSamples = NaN(3,nPublications,nLocs*4); % 4 for the number of repetitions
-for iMetric = [iMartinb,iZstar,iTeff] % response variable
+refMetricSamples = NaN(length(metrics),nPublications,nLocs*4); % 4 for the number of repetitions
+for iMetricIdx = 1:length(metrics)
+    iMetric = metrics(iMetricIdx); % response variable
     for iReference = 1:nPublications % treatment (independent variable)
         samples = squeeze(metricsData(:,iMetric,iReference,1,:)); % 1 for the mean value
-        refMetricSamples(iMetric,iReference,:) = reshape(samples,1,[]);
+        refMetricSamples(iMetricIdx,iReference,:) = reshape(samples,1,[]);
     end
 end
 
-pvalueTableShapiroTest = zeros(3,nPublications); % 3 metrics x nReferences
-pValueBartlettTest = zeros(3,1);
-pValue = zeros(3,1);
+pvalueTableShapiroTest = zeros(length(metrics),nPublications); % 3 metrics x nReferences
+pValueBartlettTest = zeros(length(metrics),1);
+pValue = zeros(size(pValueBartlettTest));
 
-i = 0;
-for iMetric = [iMartinb,iZstar,iTeff] % response variable
-    
-    fprintf('This is metric %0.f\n',iMetric)
-    i = i + 1;
+for iMetricIdx = 1:length(metrics) % response variable 
+    fprintf('This is metric %0.f\n',iMetricIdx)
     
     % Factor "reference" with 10 levels (k=10)
     % N=6*4 replicates/level (nLocs*nRepetitions)
-    ref1 = squeeze(refMetricSamples(iMetric,1,:)); 
-    ref2 = squeeze(refMetricSamples(iMetric,2,:)); 
-    ref3 = squeeze(refMetricSamples(iMetric,3,:)); 
-    ref4 = squeeze(refMetricSamples(iMetric,4,:));
-    ref5 = squeeze(refMetricSamples(iMetric,5,:));
-    ref6 = squeeze(refMetricSamples(iMetric,6,:));
-    ref7 = squeeze(refMetricSamples(iMetric,7,:));
-    ref8 = squeeze(refMetricSamples(iMetric,8,:));
-    ref9 = squeeze(refMetricSamples(iMetric,9,:));
-    ref10 = squeeze(refMetricSamples(iMetric,10,:));
+    ref1 = squeeze(refMetricSamples(iMetricIdx,1,:)); 
+    ref2 = squeeze(refMetricSamples(iMetricIdx,2,:)); 
+    ref3 = squeeze(refMetricSamples(iMetricIdx,3,:)); 
+    ref4 = squeeze(refMetricSamples(iMetricIdx,4,:));
+    ref5 = squeeze(refMetricSamples(iMetricIdx,5,:));
+    ref6 = squeeze(refMetricSamples(iMetricIdx,6,:));
+    ref7 = squeeze(refMetricSamples(iMetricIdx,7,:));
+    ref8 = squeeze(refMetricSamples(iMetricIdx,8,:));
+    ref9 = squeeze(refMetricSamples(iMetricIdx,9,:));
+    ref10 = squeeze(refMetricSamples(iMetricIdx,10,:));
 
     data = [ref1, ref2, ref3, ref4, ref5,...
             ref6, ref7, ref8, ref9, ref10]; % each column is a group (level, treatment, reference)
 
     % Testing if data are normally distributed -Shapiro-Wilk test
     for iGroup = 1:nPublications
-        [H, pvalueTableShapiroTest(i,iGroup), W] = swtest(data(:,iGroup)); %adtest(data(:,iCol));
+        if sum(~isnan(data(:,iGroup))) > 2
+            [H, pvalueTableShapiroTest(iMetricIdx,iGroup), W] = swtest(data(:,iGroup)); %adtest(data(:,iCol));
+        end
     end
 
     % Testing if variances are homogeneous -Bartlett test
-    pValueBartlettTest(i) = vartestn(data,'TestType','Bartlett','Display','off');
+    pValueBartlettTest(iMetricIdx) = vartestn(data,'TestType','Bartlett','Display','off');
     
     % Decision tree
-    if all(pvalueTableShapiroTest(i,:) > 0.05, 'all') && pValueBartlettTest(i) > 0.05
+    if all(pvalueTableShapiroTest(iMetricIdx,:) > 0.05, 'all') && pValueBartlettTest(iMetricIdx) > 0.05
         % Use ANOVA
         disp("Use ANOVA")
-        [pValue(i),tbl,stats] = anova1(data);
+        [pValue(iMetricIdx),tbl,stats] = anova1(data);
     else
         % Use Kruskal-Wallis
         disp("Use Kruskal-Wallis")
-        [pValue(i),tbl,stats] = kruskalwallis(data);
+        [pValue(iMetricIdx),tbl,stats] = kruskalwallis(data);
     end
     
     % If the test rejects the null hypothesis that all group means are 
     % equal, we can use the multiple comparisons to determine which group 
     % means are different from others. For that, we will use multcompare
     % (Tukey-Kramer post-hoc test).
-    if (pValue(i) < 0.05) % rejects H0
+    if (pValue(iMetricIdx) < 0.05) % rejects H0
         disp('We reject H0 that all group means are equal')
         [c,m,h,nms] = multcompare(stats); % , 'Display', 'off'
     else

@@ -68,7 +68,6 @@ nMatchedLocs = 0;
 tableNamesMatchedLocs = {};
 
 for iLoc = 1:nLocs
-    
     thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
 
     % Extract local data

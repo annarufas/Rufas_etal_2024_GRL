@@ -83,7 +83,7 @@ saveFigure('uvp_numbercasts_45sizeclasses')
 % TRAP AND RADIONUCLIDE-DERIVED MEASUREMENTS)
 % -------------------------------------------------------------------------
 
-plotDepths = 47.5:5:1005;
+plotDepths = 47.5:5:2005;
 idxPlotDepths = NaN(numel(plotDepths),1);
 for iDepth = 1:numel(plotDepths)
     [~, idxPlotDepths(iDepth)] = min(abs(ecotaxaDepths - plotDepths(iDepth)));
@@ -208,10 +208,10 @@ for iLoc = 1:nLocs
         xticks(xTickValues)
         xticklabels(xTickValues)
 
-        ylim([0 1000])
-        yticks([0 250 500 750 1000])
+        ylim([0 1510])
+        yticks([0 500 1000 1500])
         if (iMonth == 1 || iMonth == 4 || iMonth ==7 || iMonth == 10)
-            yticklabels({'0','250','500','750','1000'})
+            yticklabels({'0','500','1000','1500'})
         else
             yticklabels([])
         end

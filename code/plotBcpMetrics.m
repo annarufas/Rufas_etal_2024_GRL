@@ -49,10 +49,10 @@ iHa = 6; % HAUSGARTEN
 
 % Indexes to metrics
 nMetrics = 4;
-iMartinb       = 1;
-iZstar         = 2;
-iPeeff         = 3;
-iTeff100to1000 = 4;
+iMartinb = 1;
+iZstar   = 2;
+iPeeff   = 3;
+iTeff    = 4;
 
 % Indexes to publications from which BCP metrics have been obtained
 nPublications = 8 + 2; % +2 to add POC flux compilation and UVP5-derived estimates
@@ -134,7 +134,7 @@ for iSubplot = 1:nSubplots
     elseif (iSubplot >= 7 && iSubplot <= 12)        
         iMetric = iZstar; 
     elseif (iSubplot >= 13 && iSubplot <= 18)
-        iMetric = iTeff100to1000; 
+        iMetric = iTeff; 
     end
 
     for iRef = 1:nPointsPerLoc 
@@ -224,11 +224,11 @@ for iSubplot = 1:nSubplots
             ylim([10 1250]) 
             yticks([0:250:1250])
             yticklabels({'0','250','500','750','1000','1250'});
-        case iTeff100to1000 
-            ylim([0 0.50]) 
+        case iTeff 
+            ylim([0 0.80]) 
             ytickformat('%.1f')
-            yticks([0:0.15:0.60])
-            yticklabels({'0','0.15','0.30','0.45','0.60'});
+            yticks([0:0.20:0.80])
+            yticklabels({'0','0.20','0.40','0.60','0.80'});
     end
      
     if (iSubplot == 1)

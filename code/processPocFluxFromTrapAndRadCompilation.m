@@ -252,11 +252,14 @@ for iLoc = 1:nLocs
                 if iDh == 1 && any(currStatMonthData.depth < MAX_ZEU)
                     absDiff = abs(currStatMonthData.depth - qZeuMonthly(iMonth,iLoc)); % calculate the absolute difference between each depth and locZeu
                     minDiff = min(absDiff); % find the minimum absolute difference
-                    currStatMonthDhData = currStatMonthData(absDiff == minDiff,:); % extract all depths that match the minimum absolute difference
+                    currStatMonthDhData = currStatMonthData(absDiff == minDiff,:); % extract data that match the minimum absolute difference
                 
                     % Redefine LOC_DEPTH_HORIZONS based on the depth above
-                    LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) = unique(currStatMonthDhData.depth);
-                    LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh) = unique(currStatMonthDhData.depth);
+                    depthMatched = unique(currStatMonthDhData.depth);
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) = depthMatched... 
+                        - OC_ERR_FRAC.*depthMatched; % -10%
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh) = depthMatched...
+                        + OC_ERR_FRAC.*depthMatched; % -10%
                 
                 else
                     currStatMonthDhData = [];
@@ -472,7 +475,7 @@ for iLoc = 1:nLocs
     for iDh = 1:3
         nSamples = squeeze(classicMonthlyDhN(iDh,:,iLoc)); % nz x 12 x nLocs
         
-        if (any(nSamples))
+        if any(nSamples)
             classicAnnualDhN(iDh,iLoc) = sum(nSamples);
             
             vals = squeeze(classicMonthlyDhAvg(iDh,:,iLoc));
@@ -568,7 +571,7 @@ for iLoc = 1:nLocs
         for iDh = 1:3
             myvals = classicRawDhValues_cell{iDh,iMonth,iLoc};
             mytypes = classicRawDhDataType_cell{iDh,iMonth,iLoc};
-            if (~isempty(myvals))
+            if ~isempty(myvals)
                 thetypes = textscan(mytypes,'%s');
                 unnestthetypes = [thetypes{:}];
                 ntrap = nnz(strcmp(unnestthetypes,'trap'));
