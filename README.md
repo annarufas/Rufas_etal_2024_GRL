@@ -66,7 +66,7 @@ The following scripts have been run in this order to analyse the data and reprod
 | 7  | plotPocFluxFromUvp.m                         | Creates **Figure S5**                                             | 
 | 8  | findAndPlotUvpVsCompilationPocFluxMatchups.m | Creates **Figure 3**                                              |
 | 9  | processBcpMetrics.m                          | Calculates *b*, *z** and T<sub>eff</sub> using the best method determined after script 7 and generates **Dataset S2** |
-| 10 | plotBcpMetrics.m                             | Creates **Figure 4**                                                  |
+| 10 | plotBcpMetrics.m                             | Creates **Figure 4** and  **Figure S6** |
 | 11 | examineEffectSampleSize.m                    | Analyses Dataset S0 to examine effect of sample size in the calculations of the relative error of *b* and *z** |
 
 The following are helper functions used by the scripts above:
@@ -82,8 +82,9 @@ The following are helper functions used by the scripts above:
 | 18 | solveMartinbAndZstar.m                         | Algorithm to solve *b* and *z**; called by scripts 11 and 16        |
 | 19 | samplePocFluxWithLH.m                          | Latin Hypercube sampling algorithm for POC flux profiles; called by scripts 11 and 16 |
 | 20 | binPocFluxDataAtRegularDepthIntervals.m        | Low-level function, bins POC flux data by depth intervals; called by scripts 11 and 12          |
-| 21 | extractDataBelowZref.m                         | Low-level function, extracts POC flux data below the reference depth; called by scripts 5, 11, 12 and 13 |
-| 22 | constructFilenameFitMetrics.m                  | Low-level function, constructs file names for *b* fits for different scenarios; called by scripts 5, 6 and 16 |
+| 21 | extractDataFromZrefToZmeso.m                   | Low-level function, extracts POC flux data from the reference depth to the base of the mesopelagic zone; called by scripts 5, 11, 12 and 13 |
+| 22 | extractDataFromZrefToEnd.m                     | Low-level function, extracts all POC flux data below the reference depth; called by script 5 |
+| 23 | constructFilenameFitMetrics.m                  | Low-level function, constructs file names for *b* fits for different scenarios; called by scripts 5, 6 and 16 |
 
 ## Reproducibility
 
