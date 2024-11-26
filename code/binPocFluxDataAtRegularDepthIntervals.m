@@ -30,7 +30,7 @@ function [depthsBinned,fluxBinned] = binPocFluxDataAtRegularDepthIntervals(...
 % -------------------------------------------------------------------------
 % PROCESSING STEPS
 % -------------------------------------------------------------------------
-   
+                
 %% Set bin size and edges
 
 binSize = 5;
@@ -62,7 +62,8 @@ for iBin = 1:length(binEdges)
     errBinMembers = profileErrTot(inBin);
     nSamples = nData(inBin);
 
-    if ~isempty(fluxBinMembers)
+    if sum(inBin) > 1
+        
         % Weighted average calculation
         paramsWeightedAverage = fluxBinMembers .* nSamples;
         calculateWeightedAvg = @(x) sum(x) ./ sum(nSamples(:), 'omitnan');
@@ -74,6 +75,14 @@ for iBin = 1:length(binEdges)
             paramsWeightedAverage, errBinMembers);
         fluxErrBinned(iBin) = f_UB - f_MID;
         depthCentre(iBin) = binEdges(iBin);
+    
+    % Nothing to average
+    elseif sum(inBin) == 1
+        
+        fluxAvgBinned(iBin) = fluxBinMembers;
+        fluxErrBinned(iBin) = errBinMembers;
+        depthCentre(iBin) = binEdges(iBin);
+        
     end
 end
 

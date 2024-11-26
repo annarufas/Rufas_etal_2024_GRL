@@ -47,7 +47,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 15 Nov 2024                                   %
+%   Version 1.0 - Completed 23 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -113,10 +113,16 @@ iW2016 = 8;  % Weber et al. (2016)
 iUvp = iW2016 + 1;
 iTimeSeries = iUvp + 1;
 
-% Initialise the array to store metrics data
-% 3rd dimension: 1=mean, 2=1stdev upp, 3=1stdev low 
-% 4th dimension: up to 4 values provided by a publication
-metricsData = NaN(nLocs,nMetrics,nPublications,3,4); 
+% Initialise output arrays
+% 4th dim: 1=mean, 2=1stdev upp, 3=1stdev low 
+% 5th dim: up to 4 values provided by a publication
+metricsData              = NaN(nLocs,nMetrics,nPublications,3,4); 
+martinbMonthlyTrapAndRad = NaN(nLocs,12,3); 
+martinbMonthlyUvp5       = NaN(nLocs,12,3); 
+zstarMonthlyTrapAndRad   = NaN(nLocs,12,3); 
+zstarMonthlyUvp5         = NaN(nLocs,12,3); 
+teffMonthlyTrapAndRad    = NaN(nLocs,12,3); 
+teffMonthlyUvp5          = NaN(nLocs,12,3); 
 
 % Define functions for later use
 z0 = 100;
@@ -150,6 +156,18 @@ metricsData(:,iTeff,iTimeSeries,1,1) = classic.teff.ave(:);
 metricsData(:,iTeff,iTimeSeries,2,1) = classic.teff.stdevupp(:);
 metricsData(:,iTeff,iTimeSeries,3,1) = classic.teff.stdevlow(:); 
 
+martinbMonthlyTrapAndRad(:,:,1) = classic.martinb.monthlyave(:,:);
+martinbMonthlyTrapAndRad(:,:,2) = classic.martinb.monthlystdevupp(:,:);
+martinbMonthlyTrapAndRad(:,:,3) = classic.martinb.monthlystdevlow(:,:);
+
+zstarMonthlyTrapAndRad(:,:,1) = classic.zstar.monthlyave(:,:);
+zstarMonthlyTrapAndRad(:,:,2) = classic.zstar.monthlystdevupp(:,:);
+zstarMonthlyTrapAndRad(:,:,3) = classic.zstar.monthlystdevlow(:,:);
+
+teffMonthlyTrapAndRad(:,:,1) = classic.teff.monthlyave(:,:);
+teffMonthlyTrapAndRad(:,:,2) = classic.teff.monthlystdevupp(:,:);
+teffMonthlyTrapAndRad(:,:,3) = classic.teff.monthlystdevlow(:,:);
+
 % =========================================================================
 %%
 % -------------------------------------------------------------------------
@@ -173,6 +191,18 @@ metricsData(:,iZstar,iUvp,3,1) = uvp.zstar.stdevlow(:);
 metricsData(:,iTeff,iUvp,1,1) = uvp.teff.ave(:);
 metricsData(:,iTeff,iUvp,2,1) = uvp.teff.stdevupp(:);
 metricsData(:,iTeff,iUvp,3,1) = uvp.teff.stdevlow(:);
+
+martinbMonthlyUvp5(:,:,1) = uvp.martinb.monthlyave(:,:);
+martinbMonthlyUvp5(:,:,2) = uvp.martinb.monthlystdevupp(:,:);
+martinbMonthlyUvp5(:,:,3) = uvp.martinb.monthlystdevlow(:,:);
+
+zstarMonthlyUvp5(:,:,1) = uvp.zstar.monthlyave(:,:);
+zstarMonthlyUvp5(:,:,2) = uvp.zstar.monthlystdevupp(:,:);
+zstarMonthlyUvp5(:,:,3) = uvp.zstar.monthlystdevlow(:,:);
+
+teffMonthlyUvp5(:,:,1) = uvp.teff.monthlyave(:,:);
+teffMonthlyUvp5(:,:,2) = uvp.teff.monthlystdevupp(:,:);
+teffMonthlyUvp5(:,:,3) = uvp.teff.monthlystdevlow(:,:);
 
 % =========================================================================
 %%
@@ -753,8 +783,10 @@ fprintf('...done.\n')
 % SECTION 7 - SAVE THE DATA
 % -------------------------------------------------------------------------
 
-save(fullfile('.','data','processed',filenameOutputMetricsData),'metricsData',...
-    'nPublications','nMetrics')
+save(fullfile('.','data','processed',filenameOutputMetricsData),...
+    'metricsData','martinbMonthlyTrapAndRad','martinbMonthlyUvp5',...
+    'zstarMonthlyTrapAndRad','zstarMonthlyUvp5',...
+    'teffMonthlyTrapAndRad','teffMonthlyUvp5','nPublications','nMetrics')
 
 % =========================================================================
 %%

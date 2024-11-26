@@ -17,7 +17,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 13 Nov 2024                                   %
+%   Version 1.0 - Completed 23 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -319,6 +319,12 @@ theNumberOfDataPoints_permutted = permute(theNumberOfDataPoints, [2 3 1]); % 12 
 theNumberOfDataPoints_swapped = theNumberOfDataPoints_permutted;
 theNumberOfDataPoints_swapped(:, [3, 5, 4, 2, 1, 6], :) = theNumberOfDataPoints_permutted(:, [1, 2, 3, 4, 5, 6], :);
 
+% Number of data points by depth
+summedData = sum(sum(theNumberOfDataPoints, 2), 3);  
+fprintf('\n%0.1f%% data points at zeu,', 100.*(summedData(1)/sum(summedData)))
+fprintf('\n%0.1f%% data points at zmeso,', 100.*(summedData(2)/sum(summedData)))
+fprintf('\n%0.1f%% data points at zfloor.', 100.*(summedData(3)/sum(summedData)))
+
 % .........................................................................
 
 figure()
@@ -354,6 +360,8 @@ set(lg,'Box','off')
 set(gca, 'FontSize', 12); 
 
 saveFigure('compilation_numberdatapoints')
+
+clear ax
 
 % =========================================================================
 %%

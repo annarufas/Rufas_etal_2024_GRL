@@ -21,7 +21,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 13 Nov 2024                                   %                                  
+%   Version 1.0 - Completed 23 Nov 2024                                   %                                  
 %                                                                         %
 % ======================================================================= %
 
@@ -123,12 +123,11 @@ D.depthHorizon = cell(height(D),1);
 D = sortrows(D,'tag');
 
 % Add the sys error column
-D.syserr_POC_mmol_m2_d = POCFLUX_SYS_ERR_FRAC.*D.POC_mmol_m2_d;
+D.syserr_POC_mmol_m2_d = POCFLUX_SYS_ERR_FRAC .* D.POC_mmol_m2_d;
+D.syserr_POC_mg_m2_d = MOLAR_MASS_CARBON .* D.syserr_POC_mmol_m2_d;
 
-% Manipulate the random error
-% Calculate random error in mmol/m^2/d and update if necessary
+% Update the random error
 D.randerr_POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d)) = POCFLUX_RAND_ERR_FRAC .* D.POC_mmol_m2_d(isnan(D.randerr_POC_mmol_m2_d));
-% Update random error in mg/m^2/d
 D.randerr_POC_mg_m2_d = MOLAR_MASS_CARBON .* D.randerr_POC_mmol_m2_d;
 
 % =========================================================================
@@ -247,8 +246,8 @@ for iLoc = 1:nLocs
             elseif sum(depthCondition) == 0
                 
                 % For iDh = 1, if there are no data between the depth layer 
-                % boundaries defined in LOC_DEPTH_HORIZONS, find the data
-                % at closest depth that is < 200 m
+                % boundaries defined in LOC_DEPTH_HORIZONS, find data at
+                % the closest depth that is < 200 m
                 if iDh == 1 && any(currStatMonthData.depth < MAX_ZEU)
                     absDiff = abs(currStatMonthData.depth - qZeuMonthly(iMonth,iLoc)); % calculate the absolute difference between each depth and locZeu
                     minDiff = min(absDiff); % find the minimum absolute difference

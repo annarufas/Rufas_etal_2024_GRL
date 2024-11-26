@@ -1,4 +1,5 @@
-function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =... 
+function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof,...
+    martinbMonthly,zstarMonthly] =... 
     propagateErrorWithMCforMartinbAndZstar(arrayDepths,arrayFlux,...
     isMeansOfMeans,isLogTransformed,isFluxNormalised,choiceZref)
 
@@ -20,8 +21,10 @@ function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =...
 %                          3=inflexion point.
 %
 %   OUTPUT:
-%       martinbAnnual - Martin's b coefficient, with dimensions: nLocs x 5 (median, uppCI, lowCI, max, min)
-%       zstarAnnual   - remineralisation length scale coefficient, with dimensions: nLocs x 5 (median, uppCI, lowCI, max, min)
+%       martinbAnnual  - Martin's b coefficient, with dimensions: nLocs x 5 (median, uppCI, lowCI, max, min)
+%       zstarAnnual    - remineralisation length scale coefficient, with dimensions: nLocs x 5 (median, uppCI, lowCI, max, min)
+%       martinbMonthly - Martin's b coefficient, with dimensions: nLocs x 12 x 5 
+%       zstarMonthly   - remineralisation length scale coefficient, with dimensions: nLocs x 12 x 5
 %                              
 %   This script uses these external functions:
 %       constructFilenameFitMetrics.m - custom function
@@ -40,7 +43,7 @@ function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =...
 % -------------------------------------------------------------------------
 % PROCESSING STEPS
 % -------------------------------------------------------------------------
-
+        
 % To calculate the uncertainty associated to b and z*, it is necessary to
 % propagate the error through the fit while considering the uncertainty in 
 % the POC flux measurements. Since it's not possible to account for both 
@@ -48,7 +51,7 @@ function [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =...
 % we have opted to perform Monte Carlo sampling across the variable space 
 % created by the POC flux error. For each sample, we calculate b and z* 
 % and calculate the mean and standard deviation of the ensamble.
-    
+
 %% Definitions
 
 % Output filename for fits
@@ -77,6 +80,8 @@ if isMeansOfMeans
     martinbAnnual         = NaN(nLocs,5); 
     zstarAnnual           = NaN(size(martinbAnnual));    
 else
+    martinbMonthly       = []; 
+    zstarMonthly         = []; 
     martinbAnnual        = NaN(nLocs,5); % 5th dimension: 1=median, 2=CI upp, 3=CI low, 4=max, 5=min
     zstarAnnual          = NaN(size(martinbAnnual));
     martinbAnnual_mcvals = NaN(nLocs,NUM_MONTE_CARLO_SAMPLES);
@@ -98,11 +103,17 @@ if isMeansOfMeans % from means of monthly metrics
 
         for iMonth = 1:12
             fprintf('\nMonth num: %d', iMonth)
-            
+          
             profileFluxAvg   = arrayFlux(:,iMonth,iLoc,1); % mg C m-2 d-1
             profileFluxError = arrayFlux(:,iMonth,iLoc,2); % mg C m-2 d-1
             profileDepths    = arrayDepths(:,iMonth,iLoc); % m
             
+            % Pass non-NaN
+            idxNaN = isnan(profileFluxAvg);
+            profileFluxAvg = profileFluxAvg(~idxNaN);
+            profileFluxError = profileFluxError(~idxNaN);
+            profileDepths = profileDepths(~idxNaN);
+
             % Fit b and z* and propagate error from POC flux and fit
             [martinbMonthly(iLoc,iMonth,:),...
              martinbMonthly_mcvals(iLoc,iMonth,:),...
@@ -112,7 +123,7 @@ if isMeansOfMeans % from means of monthly metrics
              zstar_gof(iLoc,iMonth,:)] =...
                 fitAndPropagateError(profileFluxAvg,profileFluxError,...
                 profileDepths,isLogTransformed,NUM_SAMPLES,NUM_MONTE_CARLO_SAMPLES);
-            
+
         end % iMonth
     
         fprintf('\n...done.')
@@ -170,6 +181,12 @@ else % from annual POC flux values
         profileFluxAvg   = arrayFlux(:,iLoc,1); % mg C m-2 d-1
         profileFluxError = arrayFlux(:,iLoc,2); % mg C m-2 d-1
         profileDepths    = arrayDepths(:,iLoc); % m
+        
+        % Pass non-NaN
+        idxNaN = isnan(profileFluxAvg);
+        profileFluxAvg = profileFluxAvg(~idxNaN);
+        profileFluxError = profileFluxError(~idxNaN);
+        profileDepths = profileDepths(~idxNaN);
 
         % Fit b and z* and propagate error from POC flux and fit
         [martinbAnnual(iLoc,:),...

@@ -13,7 +13,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 14 Oct 2024                                   %
+%   Version 1.0 - Completed 23 Oct 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -227,19 +227,30 @@ set(gcf,'Units','Normalized','Position',[0.01 0.05 0.28 0.36],'Color','w')
 axh = axes('Position', [0.11 0.11 0.62 0.72]); % axes to make space for the legend on the right-hand-side
 
 % Plot error bars first
-iMatchedLoc = 0;
-for iLoc = 1:nLocs
-    thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
+for iLoc = 1:nMatchedLocs
+
+    % Re-order
+    switch iLoc
+        case 1
+            iMatchedLoc = 4; % HOT/ALOHA
+        case 2
+            iMatchedLoc = 3; % BATS/OFP
+        case 3
+            iMatchedLoc = 2; % PAP-SO
+        case 4
+            iMatchedLoc = 1; % OSP
+    end 
     
+    thisLocationName = tableNamesMatchedLocs{iMatchedLoc};
+
     if isfield(MATCHUP_TABLE, thisLocationName)
         
         x = MATCHUP_TABLE.(thisLocationName).traprad.avg;
         y = MATCHUP_TABLE.(thisLocationName).uvp.avg;
         xerr = MATCHUP_TABLE.(thisLocationName).traprad.err;
         yerr = MATCHUP_TABLE.(thisLocationName).uvp.err;
-        iMatchedLoc = iMatchedLoc + 1;
 
-        scatter(axh,NaN,NaN,60,'o','MarkerEdgeColor','k','MarkerFaceColor',coloursLocs(iMatchedLoc,:),...
+        scatter(axh,NaN,NaN,60,'o','MarkerEdgeColor','k','MarkerFaceColor',coloursLocs(iLoc,:),...
             'LineWidth',0.5,'HandleVisibility','off');
         hold on
         
@@ -249,7 +260,7 @@ for iLoc = 1:nLocs
             'LineStyle','none','HandleVisibility','off');
         eb(1).CapSize = 0;
         eb(2).CapSize = 0;
-        set(eb,'Color',coloursLocs(iMatchedLoc,:),'LineWidth',1)
+        set(eb,'Color',coloursLocs(iLoc,:),'LineWidth',1)
 
         % Set transparency level (0:1)
         alpha = 0.3;  
@@ -264,22 +275,34 @@ end
 hold on
 
 % Plot scatters on top
-iMatchedLoc = 0;
-for iLoc = 1:nLocs  
-    thisLocationName = SUFFIX_ECOTAXA_FOLDER_NAME{iLoc};
+for iLoc = 1:nMatchedLocs
+
+    % Re-order
+    switch iLoc
+        case 1
+            iMatchedLoc = 4; % HOT/ALOHA
+        case 2
+            iMatchedLoc = 3; % BATS/OFP
+        case 3
+            iMatchedLoc = 2; % PAP-SO
+        case 4
+            iMatchedLoc = 1; % OSP
+    end 
     
+    thisLocationName = tableNamesMatchedLocs{iMatchedLoc};
+
     if isfield(MATCHUP_TABLE, thisLocationName)  
         x = MATCHUP_TABLE.(thisLocationName).traprad.avg;
         y = MATCHUP_TABLE.(thisLocationName).uvp.avg;
         iMatchedLoc = iMatchedLoc + 1;
 
         scatter(axh,x,y,60,'o','MarkerEdgeColor','k',...
-            'MarkerFaceColor',coloursLocs(iMatchedLoc,:),'LineWidth',0.5);
+            'MarkerFaceColor',coloursLocs(iLoc,:),'LineWidth',0.5);
         hold on
     end
     
     % Plot 1:1 reference line
-    if (iLoc == nLocs) 
+    if (iLoc == nMatchedLocs) 
         hline = refline(axh,1,0); 
         hline.Color = 'k';
         hline.LineStyle = '--';
@@ -296,7 +319,7 @@ xlim([0 220])
 % Add statistics
 xt = max(xlim)-0.02*max(xlim); 
 yt = max(ylim)-0.02*max(ylim);
-if (pValueOverall >= 0.01)
+if (pValueOverall > 0.05)
     text(xt,yt,... % text position relative to axis
         strcat('{\it r} =',{' '},num2str(corrCoeffOverall,'%.2f'),',',...
         {' '},'{\itp} =',{' '},num2str(pValueOverall,'%.2f'),',',...
@@ -305,13 +328,13 @@ if (pValueOverall >= 0.01)
 else
    text(xt,yt,... % text position relative to axis
         strcat('{\it r} =',{' '},num2str(corrCoeffOverall,'%.2f'),',',...
-        {' '},'{\itp} < 0.01',...
+        {' '},'{\itp} \leq 0.05',',',...
         {' '},'{\itN} =',{' '},num2str(nMatchups,'%.0f')),...
         'FontSize',12,'Horiz','right','Vert','top','FontWeight','bold'); 
 end
 
 % Add legend
-lg = legend(axh,{'OSP','PAP-SO','BATS/OFP','HOT/ALOHA','1:1 line'});  
+lg = legend(axh,{'HOT/ALOHA','BATS/OFP','PAP-SO','OSP','1:1 line'});  
 lg.Position(1) = 0.74; lg.Position(2) = 0.63;
 lg.ItemTokenSize = [15,1];
 lg.FontSize = 11;
@@ -415,7 +438,7 @@ for iLoc = 1:nMatchedLocs
     % Add statistics
     xt = max(xlim)-0.02*max(xlim); 
     yt = max(ylim)-0.02*max(ylim);
-    if (pValueLocal(iMatchedLoc) >= 0.01)
+    if (pValueLocal(iMatchedLoc) > 0.05)
         text(xt,yt,... % text position relative to axis
             strcat('{\it r} =',{' '},num2str(corrCoeffLocal(iMatchedLoc),'%.2f'),',',...
             {' '},'{\itp} =',{' '},num2str(pValueLocal(iMatchedLoc),'%.2f'),',',...
@@ -424,7 +447,7 @@ for iLoc = 1:nMatchedLocs
     else
        text(xt,yt,... % text position relative to axis
             strcat('{\it r} =',{' '},num2str(corrCoeffLocal(iMatchedLoc),'%.2f'),',',...
-            {' '},'{\itp} < 0.01',',',...
+            {' '},'{\itp} \leq 0.05',',',...
             {' '},'{\itN} =',{' '},num2str(nMatchupsLocal(iMatchedLoc),'%.0f')),...
             'FontSize',11,'Horiz','right','Vert','top'); 
     end

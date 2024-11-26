@@ -1,17 +1,19 @@
 
 % ======================================================================= %
 %                                                                         %
-% This script produces Figure 4 in our paper, a comparison of published   %
-% BCP mesopelagic transfer efficiency metrics (Martin's b coefficient,    % 
-% z* coefficient and Teff) across six ocean sites associated with         %
-% ship-based time-series programs (HOT/ALOHA, BATS/OFP, EqPac, PAP-SO,    %
-% OSP and HAUSGARTEN) arranged by ocean biome (subtropical, equatorial,   %
-% subpolar and polar). The figure is finished on PPT.                     %                                           %  
+% This script generates Figure 4 in our paper, which compares published   %
+% BCP mesopelagic transfer efficiency metrics (Martin's b coefficient, z* % 
+% coefficient and Teff) across six ocean sites (HOT/ALOHA, BATS/OFP,      % 
+% EqPac, PAP-SO, OSP and HAUSGARTEN). The sites are grouped by ocean      % 
+% biome (subtropical, equatorial, subpolar and polar). The script also    %
+% produces Figure S6, which shows the monthly evolution of these three    % 
+% metrics for each location, comparing data from our sediment             %
+% trap/radionuclide compilation with UVP5 data.                           %  
 %                                                                         %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 6 Jun 2024                                    %
+%   Version 1.0 - Completed 26 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -33,11 +35,15 @@ filenameInputMetricsData           = 'bcpmetrics_all.mat';
 filenameInputTimeseriesInformation = 'timeseries_station_information.mat';
 
 % Load the metrics array
-load(fullfile('.','data','processed',filenameInputMetricsData),'metricsData')
+load(fullfile('.','data','processed',filenameInputMetricsData),...
+    'metricsData','martinbMonthlyTrapAndRad','martinbMonthlyUvp5',...
+    'zstarMonthlyTrapAndRad','zstarMonthlyUvp5',...
+    'teffMonthlyTrapAndRad','teffMonthlyUvp5')
 
 % Load station information
-load(fullfile('.','data','processed',filenameInputTimeseriesInformation),'LOC_LATS')
-nLocs = length(LOC_LATS);
+load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
+    'STATION_NAMES')
+nLocs = length(STATION_NAMES);
 
 % Indexes to locations
 iE = 1; % EqPac
@@ -249,14 +255,14 @@ for iSubplot = 1:nSubplots
     % xlabels
     xlim([-0.4 nPublications+1.4])
     xticks(1:nPublications)
-    xticklabels({'F2002',...
-                'B2009',...
-                'L2011',...
-                'G2015',...
-                'M2016',...
-                'H2012',...                  
-                'M2015',...
-                'W2016',...
+    xticklabels({'Fr2002',...
+                'Bu2009',...
+                'La2011',...
+                'Gu2015',...
+                'Mo2016',...
+                'He2012',...                  
+                'Ma2015',...
+                'We2016',...
                 'UVP5',...
                 'T&R'});
     xtickangle(90)
@@ -305,3 +311,163 @@ for iSubplot = 1:nSubplots
 end % iSubplot
 
 saveFigure('uncertainty_bcpmetrics')
+
+clear ax
+
+% =========================================================================
+%%
+% -------------------------------------------------------------------------
+% SECTION 3 - PLOT FIGURE S6
+% -------------------------------------------------------------------------
+
+coloursPlots = [1, 0, 0; 0, 0, 0]; % red for UVP, black for sediment trap/radionuclide
+
+maxValMetric = [3, 3, 4, 3, 3, 3;...
+                2100, 2100, 2100, 2100, 2100, 2100;...
+                1.2, 1.2, 1.2, 1.2, 1.2, 3.5];
+
+% Axis limits
+monthLabels = {'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'};
+metricTags = {'martinb','zstar','teff'};
+
+for iFigure = 1:3
+    
+    switch iFigure
+        case 1
+            iMetric = iMartinb;
+            titleStr = {'Martin b'};
+            metricTrapAndRad_perm = permute(martinbMonthlyTrapAndRad, [2 1 3]); % 12 months x nLocs x 3 (mean, upp, low)
+            metricUvp5_perm       = permute(martinbMonthlyUvp5, [2 1 3]);       % 12 months x nLocs x 3 (mean, upp, low)
+        case 2
+            iMetric = iZstar;
+            titleStr = {'z*'};
+            metricTrapAndRad_perm = permute(zstarMonthlyTrapAndRad, [2 1 3]); % 12 months x nLocs x 3 (mean, upp, low)
+            metricUvp5_perm       = permute(zstarMonthlyUvp5, [2 1 3]);       % 12 months x nLocs x 3 (mean, upp, low)
+        case 3
+            iMetric = iTeff;
+            titleStr = {'Teff'};
+            metricTrapAndRad_perm = permute(teffMonthlyTrapAndRad, [2 1 3]); % 12 months x nLocs x 3 (mean, upp, low)
+            metricUvp5_perm       = permute(teffMonthlyUvp5, [2 1 3]);       % 12 months x nLocs x 3 (mean, upp, low)
+    end
+    
+    figure()
+    set(gcf,'Units','Normalized','Position',[0.01 0.05 0.55 0.45],'Color','w') 
+    haxis = zeros(nLocs,1);
+
+    for iSubplot = 1:nLocs
+
+        haxis(iSubplot) = subaxis(2,3,iSubplot,'Spacing',0.028,'Padding',0.028,'Margin',0.10);
+        ax(iSubplot).pos = get(haxis(iSubplot),'Position');
+        ax(iSubplot).pos(1) = ax(iSubplot).pos(1)-0.035;
+        ax(iSubplot).pos(2) = ax(iSubplot).pos(2)+0.030; 
+        if (iSubplot == 2 || iSubplot == 5)
+            ax(iSubplot).pos(1) = ax(iSubplot).pos(1)-0.035;
+        elseif (iSubplot == 3 || iSubplot == 6)
+            ax(iSubplot).pos(1) = ax(iSubplot).pos(1)-0.070;
+        end
+        if (iSubplot > 3)
+            ax(iSubplot).pos(2) = ax(iSubplot).pos(2)-0.040;
+        end
+        set(haxis(iSubplot),'Position',ax(iSubplot).pos)
+
+        % Re-order
+        switch iSubplot
+            case 1
+                iLoc = iHo; % HOT/ALOHA
+            case 2
+                iLoc = iB; % BATS/OFP
+            case 3
+                iLoc = iE; % EqPac
+            case 4
+                iLoc = iP; % PAP-SO
+            case 5
+                iLoc = iO; % OSP
+            case 6
+                iLoc = iHa; % HAUSGARTEN
+        end
+
+        vals1 = metricUvp5_perm(:,iLoc,1);
+        vals2 = metricTrapAndRad_perm(:,iLoc,1);
+
+        pos1 = metricUvp5_perm(:,iLoc,2) - vals1;
+        pos2 = metricTrapAndRad_perm(:,iLoc,2) - vals2;
+
+        neg1 = vals1 - metricUvp5_perm(:,iLoc,3);
+        neg2 = vals2 - metricTrapAndRad_perm(:,iLoc,3);
+
+        % Grouped bar plot
+        hbar = bar(haxis(iSubplot),[vals1, vals2],'grouped','BarWidth',1,'FaceColor','flat'); 
+        hold on
+
+        % Colour bars
+        for k = 1:numel(hbar)
+            hbar(k).CData = coloursPlots(k,:);
+        end
+        hold on
+
+        % Add error bars
+        for k = 1:numel(hbar)                                                      
+            xtips = hbar(k).XEndPoints;
+            ytips = hbar(k).YEndPoints;
+            if k == 1
+                errorbar(haxis(iSubplot),xtips,ytips,neg1,pos1,'.k','MarkerSize',0.2,'CapSize', 2,'HandleVisibility','off')
+            elseif k == 2
+                errorbar(haxis(iSubplot),xtips,ytips,neg2,pos2,'.k','MarkerSize',0.2,'CapSize', 2,'HandleVisibility','off')
+            end
+            hold on
+        end
+        hold on
+
+        % Add annual mean from UVP5 compilation
+        yline(metricsData(iLoc,iMetric,9,1,1),'-','Color',coloursPlots(1,:),'LineWidth',1);
+        hold off
+
+        % Add annual mean from sediment trap and radionuclide compilation
+        yline(metricsData(iLoc,iMetric,10,1,1),'-','Color',coloursPlots(2,:),'LineWidth',1);
+        hold on
+
+        % Set yaxis limits and label
+        ylim([0 maxValMetric(iFigure,iSubplot)]);
+        if (iFigure == 1 || iFigure ==3)
+            ytickformat('%.1f')
+        else
+            ytickformat('%.0f')
+        end
+
+        % Set xaxis labels
+        set(gca,'xticklabel',monthLabels);
+        xtickangle(90);
+
+        % Grid
+        axgrid = gca;
+        axgrid.YGrid = 'on';  % Enable only horizontal grid lines
+        axgrid.XGrid = 'off'; % Disable vertical grid lines
+
+        % Title
+        title(STATION_NAMES(iLoc),'FontSize',12)
+        
+        % Legend
+        if (iSubplot == nLocs)
+            lg = legend('UVP5','T&R','Annual mean UVP5','Annual mean T&R','Location','eastoutside');
+            lg.Position(1) = 0.80; lg.Position(2) = 0.78;
+            lg.Orientation = 'vertical';
+            lg.FontSize = 12; 
+            lg.ItemTokenSize = [20,5];
+            set(lg,'Box','off')   
+        end
+
+    end % iSubplot
+
+    % Give common title to the figure
+    a = axes;
+    t = title(titleStr,'FontSize',16);
+    % Specify visibility of the current axis as 'off'
+    a.Visible = 'off';
+    % Specify visibility of Title, XLabel, and YLabel as 'on'
+    t.Visible = 'on';
+    t.Position(1) = t.Position(1);
+    t.Position(2) = t.Position(2) + 0.040;
+
+    saveFigure(strcat('barplot_',metricTags{iFigure}))
+
+end % iFigure

@@ -8,7 +8,7 @@
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 6 Nov 2024                                    %
+%   Version 1.0 - Completed 20 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -37,7 +37,7 @@ load(fullfile('.','data','processed',filenameInputFluxCompilation),...
 
 % Load information on stations
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'STATION_NAMES','qZeuMonthly')
+    'STATION_NAMES','qZeuMonthly','LOC_DEPTH_HORIZONS','MAX_ZEU')
 nLocs = length(STATION_NAMES);
 
 % Define possible values for each choice
@@ -109,13 +109,16 @@ for isLogTransformed = isLogTransformedOptions
                     iLoc = iHa; % HAUSGARTEN
                 end
 
+                depthBounds = [max(LOC_DEPTH_HORIZONS(:,iLoc,1,1)), max(LOC_DEPTH_HORIZONS(:,iLoc,1,2)), max(LOC_DEPTH_HORIZONS(:,iLoc,1,3));
+                               max(LOC_DEPTH_HORIZONS(:,iLoc,2,1)), max(LOC_DEPTH_HORIZONS(:,iLoc,2,2)), max(LOC_DEPTH_HORIZONS(:,iLoc,2,3))];
+
                 % Extract data (as it is, not the 5-m bin-averaged)
                 idxValidData = find(~isnan(classicAnnualProfileDepths(:,iLoc)));
                 validDepths = classicAnnualProfileDepths(idxValidData,iLoc);
                 validFluxes = classicAnnualProfileAvg(idxValidData,iLoc);
                 validErrs = classicAnnualProfileErrTot(idxValidData,iLoc);
-                [selectedDepths,selectedFluxes,selectedErrs] = extractDataBelowZref(...
-                    validDepths,validFluxes,validErrs,choiceZref,qZeuAnnual(iLoc),200);
+                [selectedDepths,selectedFluxes,selectedErrs] = extractDataFromZrefToEnd(...
+                    validDepths,validFluxes,validErrs,choiceZref,depthBounds,MAX_ZEU);
 
                 % Extract estimated fit for 'means of means' 
                 estimatedMartinbMeansOfMeans = martinbAnnual(iLoc,1,j,k,choiceZref);
@@ -128,10 +131,10 @@ for isLogTransformed = isLogTransformedOptions
                     'o','MarkerEdgeColor','k','MarkerFaceColor','k','LineWidth',1.5);
                 hold on;
 
-                % Calculate the fit line for Martin's canonical fit and plot it
-                [fluxFit,depthFit] = calculateFluxFit(selectedFluxes,selectedDepths,canonicalMartinb);
-                plot(haxis(iSubplot),fluxFit,depthFit,'Color',colourFeatures(1,:),'LineWidth',2);
-                hold on;
+%                 % Calculate the fit line for Martin's canonical fit and plot it
+%                 [fluxFit,depthFit] = calculateFluxFit(selectedFluxes,selectedDepths,canonicalMartinb);
+%                 plot(haxis(iSubplot),fluxFit,depthFit,'Color',colourFeatures(1,:),'LineWidth',2);
+%                 hold on;
 
                 % Calculate the fit line for estimated b for 'means of means' and plot it
                 [fluxFit,depthFit] = calculateFluxFit(selectedFluxes,selectedDepths,estimatedMartinbMeansOfMeans);
@@ -181,7 +184,6 @@ for isLogTransformed = isLogTransformedOptions
 
                 if (iSubplot == nLocs)
                     lg = legend('Observed data',...
-                                'Canonical b fit',...
                                 'Estimated b fit MM',...
                                 'Estimated b fit AF',...
                                 'Reference depth',...

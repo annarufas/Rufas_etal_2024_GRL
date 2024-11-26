@@ -16,7 +16,7 @@ function [paramMatrixFlux,paramMatrixDepth] = samplePocFluxWithLH(profileFlux_me
 %   OUTPUT:
 %       paramMatrixFlux   - nFluxPoints x nSamples array with randomly
 %                           sampled POC flux values
-%      paramMatrixDepth   - nFluxPoints depths
+%       paramMatrixDepth  - nFluxPoints depths
 %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD
 %   Anna.RufasBlanco@earth.ox.ac.uk

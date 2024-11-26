@@ -21,18 +21,19 @@ function [classic] = calculateBcpMetricsFromTrapAndRadCompilation(...
 %
 %    OUTPUT:
 %       classic - local annual average values and standard
-%                 deviations of b, z* and Teff 100 to 1000 m
+%                 deviations of b, z* and Teff 100 to 1000 m, as well as
+%                 monthly values
 %
 %   This script uses these external functions: 
 %       propagateErrorWithMCforTeff.m            - custom function
 %       propagateErrorWithMCforMartinbAndZstar.m - custom function
 %       binPocFluxDataAtRegularDepthIntervals.m  - custom function
-%       extractDataBelowZref.m                   - custom function
+%       extractDataFromZrefToZmeso.m             - custom function
 %
 %   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD
 %   Anna.RufasBlanco@earth.ox.ac.uk
 %
-%   Version 1.0 - Completed 13 Nov 2024   
+%   Version 1.0 - Completed 23 Nov 2024   
 %
 % =========================================================================
 %%
@@ -60,7 +61,7 @@ load(fullfile('.','data','processed',filenameInputFluxCompilation),...
 
 % Load information on stations
 load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
-    'qZeuMonthly','MAX_NUM_DEPTHS_PER_PROFILE','MAX_ZEU')
+    'qZeuMonthly','MAX_NUM_DEPTHS_PER_PROFILE','LOC_DEPTH_HORIZONS','MAX_ZEU')
 nLocs = size(qZeuMonthly,2);
 
 %% Calculate Teff
@@ -75,15 +76,13 @@ if isMeansOfMeans
     arrayFlux(2,:,:,2) = squeeze(classicMonthlyDhErrTot(2,:,:)); 
 
     fprintf('\nInitiate calculation of Teff...\n')
-    teffAnnual = propagateErrorWithMCforTeff(arrayFlux,isMeansOfMeans);
+    [teffAnnual,teffMonthly] = propagateErrorWithMCforTeff(arrayFlux,isMeansOfMeans);
     fprintf('\n...done.\n')
-
-    classic.teff.ave      = teffAnnual(:,1);
-    classic.teff.stdevupp = teffAnnual(:,2);
-    classic.teff.stdevlow = teffAnnual(:,3);
-    classic.teff.max      = teffAnnual(:,4);
-    classic.teff.min      = teffAnnual(:,5);
     
+    classic.teff.monthlyave      = teffMonthly(:,:,1);
+    classic.teff.monthlystdevupp = teffMonthly(:,:,2);
+    classic.teff.monthlystdevlow = teffMonthly(:,:,3);
+
 else
     
     % Offload POC flux data to be passed to the function computing Teff 
@@ -94,16 +93,16 @@ else
     arrayFlux(2,:,2) = squeeze(classicAnnualDhErrTot(2,:));
 
     fprintf('\nInitiate calculation of Teff...\n')       
-    teffAnnual = propagateErrorWithMCforTeff(arrayFlux,isMeansOfMeans);
+    [teffAnnual,~] = propagateErrorWithMCforTeff(arrayFlux,isMeansOfMeans);
     fprintf('\n...done.\n')
 
-    classic.teff.ave      = teffAnnual(:,1);
-    classic.teff.stdevupp = teffAnnual(:,2);
-    classic.teff.stdevlow = teffAnnual(:,3);
-    classic.teff.max      = teffAnnual(:,4);
-    classic.teff.min      = teffAnnual(:,5);
-    
 end
+
+classic.teff.ave      = teffAnnual(:,1);
+classic.teff.stdevupp = teffAnnual(:,2);
+classic.teff.stdevlow = teffAnnual(:,3);
+classic.teff.max      = teffAnnual(:,4);
+classic.teff.min      = teffAnnual(:,5);
 
 %% Calculate Martin's b and z*
 
@@ -125,7 +124,7 @@ if isMeansOfMeans
         end
     end
   
-    % Extract data from zref and below, to be passed to the function 
+    % Extract data from zref to zmeso, to be passed to the function 
     % calculating b and z*
     arrayFlux   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs,2); % 4th dim: 1=avg, 2=err 
     arrayDepths = NaN(MAX_NUM_DEPTHS_PER_PROFILE,12,nLocs);
@@ -134,9 +133,9 @@ if isMeansOfMeans
         for iMonth = 1:12
 
             [selectedDepths,selectedFluxes,selectedErrors] = ...
-                extractDataBelowZref(depthsBinned(:,iMonth,iLoc),...
+                extractDataFromZrefToZmeso(depthsBinned(:,iMonth,iLoc),...
                     fluxBinned(:,iMonth,iLoc,1),fluxBinned(:,iMonth,iLoc,2),...
-                    choiceZref,qZeuMonthly(iMonth,iLoc),MAX_ZEU);
+                    choiceZref,squeeze(LOC_DEPTH_HORIZONS(iMonth,iLoc,:,:)),MAX_ZEU);
              
             nEntriesSelected = numel(selectedDepths);
             if (~isempty(nEntriesSelected) && nEntriesSelected > 0) 
@@ -153,16 +152,21 @@ if isMeansOfMeans
     end
 
     fprintf('\nInitiate calculation of b and z*...\n')
-    [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =...
+    [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof,martinbMonthly,zstarMonthly] =...
         propagateErrorWithMCforMartinbAndZstar(arrayDepths,arrayFlux,...
             isMeansOfMeans,isLogTransformed,isFluxNormalised,choiceZref);
     fprintf('\n...done.\n')
+    
+    classic.martinb.monthlyave      = martinbMonthly(:,:,1);
+    classic.martinb.monthlystdevupp = martinbMonthly(:,:,2);
+    classic.martinb.monthlystdevlow = martinbMonthly(:,:,3);
+    
+    classic.zstar.monthlyave        = zstarMonthly(:,:,1);
+    classic.zstar.monthlystdevupp   = zstarMonthly(:,:,2);
+    classic.zstar.monthlystdevlow   = zstarMonthly(:,:,3);
 
 else
-    
-    % Calculate annual euphotic layer depth
-    qZeuAnnual = mean(qZeuMonthly,1,'omitnan');
-        
+   
     % Bin data at 5 m depth regular intervals to smooth curve fitting
     fluxBinned   = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs,2); % 4th dim: 1=avg, 2=err
     depthsBinned = NaN(MAX_NUM_DEPTHS_PER_PROFILE,nLocs);
@@ -184,10 +188,13 @@ else
     
     for iLoc = 1:nLocs
 
+        depthBounds = [max(LOC_DEPTH_HORIZONS(:,iLoc,1,1)), max(LOC_DEPTH_HORIZONS(:,iLoc,1,2)), max(LOC_DEPTH_HORIZONS(:,iLoc,1,3));
+                       max(LOC_DEPTH_HORIZONS(:,iLoc,2,1)), max(LOC_DEPTH_HORIZONS(:,iLoc,2,2)), max(LOC_DEPTH_HORIZONS(:,iLoc,2,3))];
+
         [selectedDepths,selectedFluxes,selectedErrors] = ...
-            extractDataBelowZref(depthsBinned(:,iLoc),fluxBinned(:,iLoc,1),...
-                fluxBinned(:,iLoc,2),choiceZref,qZeuAnnual(iLoc),MAX_ZEU);
-  
+            extractDataFromZrefToZmeso(depthsBinned(:,iLoc),fluxBinned(:,iLoc,1),...
+                fluxBinned(:,iLoc,2),choiceZref,depthBounds,MAX_ZEU);
+
         nEntriesSelected = numel(selectedDepths);
         if (~isempty(nEntriesSelected) && nEntriesSelected > 0)
             if isFluxNormalised
@@ -202,7 +209,7 @@ else
     end 
     
     fprintf('\nInitiate calculation of b and z*...\n')
-    [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof] =... 
+    [martinbAnnual,zstarAnnual,martinb_gof,zstar_gof,~,~] =... 
         propagateErrorWithMCforMartinbAndZstar(arrayDepths,arrayFlux,...
             isMeansOfMeans,isLogTransformed,isFluxNormalised,choiceZref);
     fprintf('\n...done.\n')

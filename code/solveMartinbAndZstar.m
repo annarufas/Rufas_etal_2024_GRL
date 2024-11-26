@@ -63,12 +63,12 @@ fexp = NaN(3,1);
 %% Start calculations
 
 % The fit function cannot take NaN values, remove them
-iNonNan = ~isnan(fluxValues) & ~isnan(fluxDepths);
-f = fluxValues(iNonNan);
-z = fluxDepths(iNonNan);
+idxValid = ~isnan(fluxValues) & ~isnan(fluxDepths);
+f = fluxValues(idxValid);
+z = fluxDepths(idxValid);
 
 % Proceed if there are data in the 1st position of the POC flux
-% vector and there are at least 3 data points in the vertical
+% vector, there are at least 3 data points in the vertical
 if (f(1) > 0 && size(f,1) >= 3) 
 
     f0 = f(1);

@@ -21,7 +21,7 @@
 %   WITH CODES PROVIDED BY K. BISSON, OREGON STATE                        %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
-%   Version 1.0 - Completed 12 Nov 2024                                   %
+%   Version 1.0 - Completed 23 Nov 2024                                   %
 %                                                                         %
 % ======================================================================= %
 
@@ -291,9 +291,23 @@ for iLoc = 1:nLocs
             for iDh = 1:2 % we don't need the 3rd target depth (bathypelagic) 
                 depthCondition = ecotaxaDepths > LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) &...
                                  ecotaxaDepths < LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh);
-
+                
                 currMonthData = uvpMonthlyFluxProfileAvg(depthCondition,iMonth,iLoc);
                 currMonthErr = uvpMonthlyFluxProfileErr(depthCondition,iMonth,iLoc);
+                
+                % If no data found in the mesopelagic for the selected
+                % depth range
+                if iDh == 2 && ~any(currMonthData)
+                    depthCondition = ecotaxaDepths > 1000 - 10 &...
+                                     ecotaxaDepths < 1000 + 10;
+                
+                    currMonthData = uvpMonthlyFluxProfileAvg(depthCondition,iMonth,iLoc);
+                    currMonthErr = uvpMonthlyFluxProfileErr(depthCondition,iMonth,iLoc);
+                    
+                    % Redefine
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,1,iDh) = 1000 - 10;
+                    LOC_DEPTH_HORIZONS(iMonth,iLoc,2,iDh) = 1000 + 10;
+                end
                 
                 % Proceed if there are data in the current month
                 if any(currMonthData)
@@ -413,11 +427,13 @@ end % iLoc
 
 % Save monthly and annual averages
 save(fullfile('.','data','processed','UVP5',filenameOutputUvpProcessedDataset45sc),...
-    'uvpFluxByCastAvg','uvpFluxByCastErr','ecotaxaDepths','castMonthlyDistrib','UVP_TABLE',...
+    'LOC_DEPTH_HORIZONS','UVP_TABLE','ecotaxaDepths',...
+    'uvpFluxByCastAvg','uvpFluxByCastErr','castMonthlyDistrib',...
     'uvpMonthlyFluxProfileAvg','uvpMonthlyFluxProfileN','uvpMonthlyFluxProfileErr',...
     'uvpMonthlyFluxDhAvg','uvpMonthlyFluxDhN','uvpMonthlyFluxDhErr',...
-    'uvpAnnualFluxProfileAvg','uvpAnnualFluxProfileErr','uvpAnnualFluxProfileMin','uvpAnnualFluxProfileMax',...
-    'uvpAnnualFluxDhAvg','uvpAnnualFluxDhErr','uvpAnnualFluxDhMin','uvpAnnualFluxDhMax','-v7.3')
+    'uvpAnnualFluxProfileAvg','uvpAnnualFluxProfileErr','uvpAnnualFluxProfileMin',...
+    'uvpAnnualFluxProfileMax','uvpAnnualFluxDhAvg','uvpAnnualFluxDhErr',...
+    'uvpAnnualFluxDhMin','uvpAnnualFluxDhMax','-v7.3')
 
 fprintf('\nThe UVP5-derived POC flux dataset has been saved correctly.\n')
 
