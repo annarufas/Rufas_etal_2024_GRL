@@ -9,7 +9,7 @@ figures/Map-AnnaSZ*
 figures/~$*.pptx
 figures/compilation_compilation_percentageuncertainty*
 figures/uncertainty_*
-data/interim/
+data/interim/*.mat
 data/raw/dataset_s0_trap_and_radionuclide_compilation.xlsx
 data/raw/dataset_s0_contributing_data
 data/processed/fitmetrics_classic_*
