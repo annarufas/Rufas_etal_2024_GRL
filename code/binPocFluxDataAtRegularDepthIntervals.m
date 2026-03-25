@@ -1,5 +1,5 @@
 function [depthsBinned,fluxBinned] = binPocFluxDataAtRegularDepthIntervals(...
-    profileDepths,profileAvg,profileErrTot,nData,maxNumDepths)
+    config,profileDepths,profileAvg,profileErrTot,nData,maxNumDepths)
 
 % BINPOCFLUXDATAATREGULARDEPTHINTERVALS Bins particulate organic carbon (POC) 
 % flux data at regular depth intervals and propagates associated errors. 
@@ -33,8 +33,8 @@ function [depthsBinned,fluxBinned] = binPocFluxDataAtRegularDepthIntervals(...
                 
 %% Set bin size and edges
 
-binSize = 5;
-maxDepth = 5000;
+maxDepth = config.MAX_ALLOWED_DEPTH; % m
+binSize = config.DEFAULT_DEPTH_LAYER_HEIGHT; % m
 
 %% Allocate memory for binned data
 

@@ -65,7 +65,7 @@ SIZE_STEP_PROGRESSION = 2^(1/3); % 2^(1/3) ~= 1.26 um
 % Enter the coordinates that we have used to define our locations in the
 % EcoTaxa's website map
 LAT_UPPER = zeros(nLocs,1);
-LAT_UPPER = zeros(nLocs,1);
+LAT_LOWER = zeros(nLocs,1);
 LON_RIGHT = zeros(nLocs,1);
 LON_LEFT = zeros(nLocs,1);
 
@@ -105,8 +105,8 @@ end
 
 binMiddle = zeros(NUM_SIZE_CLASSES,1);
 for i = 1:NUM_SIZE_CLASSES
-%     esdMiddle(i) = geomean(esdEdges(i:i+1));
-    binMiddle(i) = (binEdges(i+1) + binEdges(i))./ 2;
+%     esdMiddle(i) = geomean(esdEdges(i:i+1)); % geometric mean
+    binMiddle(i) = (binEdges(i+1) + binEdges(i))./ 2; % arithmetic mean
 end
 
 binWidth = zeros(NUM_SIZE_CLASSES,1);
