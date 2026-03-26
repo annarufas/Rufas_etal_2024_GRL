@@ -3,8 +3,21 @@
 %                                                                         %
 % This script reads in particle concentration data from the UVP5          %
 % instrument downloaded from the EcoTaxa repository and calculates POC    %
-% flux using the method of Bisson et al. (2022). The script has 9         %
-% sections:                                                               %
+% flux using the method of Bisson et al. (2022).                          %
+%                                                                         %
+% IMPORTANT NOTE ON SIZE REPRESENTATION:                                  %
+% Particle size classes from EcoTaxa are expressed in Equivalent          %
+% Spherical Diameter (ESD). However, parts of the original EcoPart        %
+% workflow applies a transformation formally derived for converting       %
+% biovolume to diameter (V -> r -> d) to variables that are treated as    %
+% ESD.                                                                    %
+%                                                                         %
+% This implementation retains that approach for consistency with          % 
+% EcoPart-derived flux estimates and published parameterisations.         %
+% As a result, the workflow is empirically consistent but not strictly    %
+% dimensionally rigorous.                                                 %
+%                                                                         %
+% The script has 9 sections:                                              %
 %   Section 1 - Presets.                                                  %
 %   Section 2 - Read in EcoTaxa particle files and save the data into     %
 %               .mat arrays.                                              %
@@ -17,11 +30,17 @@
 %   Section 8 - Bin data annually by depth horizon and propagate error.   % 
 %   Section 9 – Save the data.                                            %
 %                                                                         %
-%   WRITTEN BY A. RUFAS, UNIVERISTY OF OXFORD                             %
+%   WRITTEN BY A. RUFAS, UNIVERSITY OF OXFORD                             %
 %   WITH CODES PROVIDED BY K. BISSON, OREGON STATE                        %
 %   Anna.RufasBlanco@earth.ox.ac.uk                                       %
 %                                                                         %
 %   Version 1.0 - Completed 23 Nov 2024                                   %
+%                                                                         %
+%   Version 1.1 - Updated 26 Mar 2026                                     %
+%                 Clarified size-class interpretation (ESD vs biovolume)  % 
+%                 and EcoPart compatibility in flux calculations. This    %
+%                 update introduces documentation clarifications only;    %
+%                 numerical results are unchanged relative to Version 1.0.%
 %                                                                         %
 % ======================================================================= %
 
@@ -59,8 +78,15 @@ load(fullfile('.','data','processed',filenameInputTimeseriesInformation),...
 nLocs = size(LOC_DEPTH_HORIZONS,2);
 
 % Particle size parameter declarations
-NUM_SIZE_CLASSES = 45;
-SIZE_STEP_PROGRESSION = 2^(1/3); % 2^(1/3) ~= 1.26 um
+NUM_SIZE_CLASSES = 45; % no. size classes used in EcoTaxa/UVP products
+SIZE_STEP_PROGRESSION = 2^(1/3); % ~1.26 um (dimensionless geometric progression factor)
+% Using 2^(1/3) (let's call it "k") ensures that:
+%   - diameter increases geometrically (d --> k · d)
+%   - particle volume, which is linked to "d" by a power-law (i.e., V ~ d^3) 
+%     doubles between consecutive bins (V --> k^3 · V; V = (2^(1/3))^3 · V
+%     = 2 · V)
+%   => bins are uniformly spaced in log2(volume), although expressed in
+%   diameter, log2(V(i+1)) = log2(2·V) = log2(V) + 1
 
 % Enter the coordinates that we have used to define our locations in the
 % EcoTaxa's website map
@@ -97,18 +123,24 @@ if ~isEcotaxaDataReady
 end
 
 % EcoTaxa size class definitions (um)
+
+% Bin edges correspond to ESD values (NOT volume).
+% NOTE: Applying this progression in ESD implies that particle volume
+% doubles between consecutive bins (V ~ d^3).
 binEdges = zeros(NUM_SIZE_CLASSES+1,1);
 binEdges(1) = 1; % 1 um
 for i = 2:NUM_SIZE_CLASSES+1
     binEdges(i) = binEdges(i - 1) * SIZE_STEP_PROGRESSION; % 2^(1/3) ~= 1.26 um
 end
 
+% Bin midpoints
 binMiddle = zeros(NUM_SIZE_CLASSES,1);
 for i = 1:NUM_SIZE_CLASSES
 %     esdMiddle(i) = geomean(esdEdges(i:i+1)); % geometric mean
-    binMiddle(i) = (binEdges(i+1) + binEdges(i))./ 2; % arithmetic mean
+    binMiddle(i) = (binEdges(i+1) + binEdges(i))./ 2; % arithmetic mean (used in EcoPart scripts: pasvar.m)
 end
 
+% Bin widths in ESD
 binWidth = zeros(NUM_SIZE_CLASSES,1);
 for i = 1:NUM_SIZE_CLASSES      
     binWidth(i) = binEdges(i+1) - binEdges(i);
@@ -118,6 +150,14 @@ end
 binEdges = binEdges*1e-3;
 binMiddle = binMiddle*1e-3;
 binWidth = binWidth*1e-3;
+
+% NOTE:
+% Although binMiddle represents ESD (mm), the transformation below treats it
+% as if it were particle volume to compute an equivalent spherical diameter.
+% This follows the original EcoPart implementation, where the flux law
+% coefficients are empirically calibrated within this framework.
+% Therefore, while dimensionally inconsistent, this approach is retained
+% for consistency with EcoPart-derived flux estimates.
 
 % =========================================================================
 %%
@@ -475,12 +515,25 @@ end % generateRandomSamplesOfParticleNumber
 function pocFlux = calculatePocFlux(psd,binMiddle) 
 
 % Input:
-%   psd, # part L-1
-%   binWidth, mm
-%   binMiddle, mm
-% 
+%   psd        : particle size distribution (# particles L^-1 per size bin)
+%   binMiddle  : bin midpoint ESD (mm)
+%
 % Output:
-%   pocFlux, mg C m-2 d-1
+%   pocFlux    : particulate organic carbon flux (mg C m^-2 d^-1)
+
+% WARNING:
+% The following conversion to ESD assumes binMiddle represents particle VOLUME,
+% using V = (4/3)*pi*r^3.
+% However, binMiddle is actually ESD (mm), so this is dimensionally inconsistent.
+%
+% Correct usage would be EITHER:
+%   particleEsd = binMiddle;
+% OR, if starting from volume:
+%   r = (V / ((4/3)*pi))^(1/3)
+%
+% This implementation follows EcoPart for consistency. If a physically
+% consistent formulation is required, this transformation should be removed
+% and ESD used directly in the flux parameterisation.
 
 particleRadius = binMiddle./((4/3)*pi);
 particleRadius = particleRadius.^(1/3);
