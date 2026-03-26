@@ -16,14 +16,22 @@ A. Rufas<sup>1</sup>, S. Khatiwala<sup>1</sup>, K. M. Bisson<sup>2,</sup><sup>3<
 <sup>3</sup>Department of Botany and Plant Pathology, Oregon State University, Corvallis, OR, USA
 <sup>4</sup>National Oceanography Centre, Southampton, UK
 
-Find the pre-print in the [Earth and Space Science Open Archive](https://essopenarchive.org/users/806280/articles/1197117-can-we-constrain-geographical-variability-in-the-biological-carbon-pump-s-transfer-efficiency-from-observations).
+Find the paper in [*Geophysical Research Letters*](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2024GL111203).
 
 ## Requirements
 
 To use the content of this repository, ensure you have the following.
 - [MATLAB](https://mathworks.com/products/matlab.html) version R2021a or later installed. 
-- Third-party functions downloaded from [MATLAB's File Exchange](https://mathworks.com/matlabcentral/fileexchange/): `worstcase`, `MCErrorPropagation`, `swtest.m`, `FMINSEARCHBND`, `m_map`, `brewermap`, `longhurst_v4_2010`, `subaxis` and `plotBarStackGroups`. Once downloaded, please place the functions in the `./resources/external/` directory.
+- Third-party functions downloaded from [MATLAB's File Exchange](https://mathworks.com/matlabcentral/fileexchange/): `worstcase`, `MCErrorPropagation`, `swtest.m`, `FMINSEARCHBND`, `m_map`, `brewermap`, `longhurst_v4_2010`, `subaxis` and `plotBarStackGroups`. Once downloaded, place the functions in the `./resources/external/` directory.
 - MATLAB toolboxes: the [Optimization Toolbox](https://mathworks.com/products/optimization.html), necessary to run `worstcase`, the [Statistics and Machine Learning Toolbox](https://mathworks.com/products/statistics.html), necessary to run `MCErrorPropagation` and `swtest.m`, and the [Curve Fitting Toolbox](https://www.mathworks.com/products/curvefitting.html), necessary to run `fittype`.
+
+## External dependencies
+
+This workflow relies on legacy MATLAB functions originally developed within the EcoPart / EcoTaxa framework (e.g. `pasvar`, `nb_flux`).
+
+These scripts are not included in this repository due to licensing uncertainty. Related tools are available in the EcoTaxa MATLAB toolbox: https://github.com/ecotaxa/ecotaxatoolbox
+
+The present implementation follows the same methodology, including the EcoPart-specific handling of size classes and flux calculations.
 
 ## Repository Structure
 
@@ -62,7 +70,7 @@ The following scripts have been run in this order to analyse the data and reprod
 | 3  | plotPocFluxFromTrapAndRadCompilation.m       | Creates **Figure 2**, **S1** and **S2**                           |
 | 4  | processPocFluxFits.m                         | Calculates *b* for various scenarios using **Dataset S0** and generates **Dataset S1**     |
 | 5  | plotPocFluxFits.m                            | Creates **Figure S3**                                                 |   
-| 6  | processPocFluxFromUvp.m                      | Processes the **UVP5 dataset** downloaded from Ecopart            |
+| 6  | processPocFluxFromUvp.m                      | Processes the **UVP5 dataset** downloaded from EcoPart            |
 | 7  | plotPocFluxFromUvp.m                         | Creates **Figure S5**                                             | 
 | 8  | findAndPlotUvpVsCompilationPocFluxMatchups.m | Creates **Figure 3**                                              |
 | 9  | processBcpMetrics.m                          | Calculates *b*, *z** and T<sub>eff</sub> using the best method determined after script 7 and generates **Dataset S2** |

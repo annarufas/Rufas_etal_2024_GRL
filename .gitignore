@@ -1,12 +1,4 @@
-# Ignore everything in external resources
 resources/external/*
-
-# But keep this specific folder
-!resources/external/ecopart_legacy/
-
-# And make sure its contents are included
-!resources/external/ecopart_legacy/**
-
 notinuse
 code/*.asv
 figures/creating_figures_2nddraft.pptx
