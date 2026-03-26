@@ -535,10 +535,10 @@ function pocFlux = calculatePocFlux(psd,binMiddle)
 % consistent formulation is required, this transformation should be removed
 % and ESD used directly in the flux parameterisation.
 
-particleRadius = binMiddle./((4/3)*pi);
-particleRadius = particleRadius.^(1/3);
-particleEsd = particleRadius.*2; 
-
+ra = binMiddle./((4/3)*pi); % volume --> r^3 
+ra = ra.^(1/3);             % --> radius
+particleEsd = ra.*2;        % --> diameter
+ 
 % Flux factor function from Eq. 5 in Bisson et al. (2022)
 fluxFactor = @(d) 2.8.*d.^2.24;
 
